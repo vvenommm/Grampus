@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+  PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-config.dtd">
+ <configuration>
+ 	<!-- 
+ 		[마이바티스]스프링에서 "_"를 사용한 컬럼명을 사용 시(BOOK 테이블의 BOOK_ID)
+ 		카멜케이스로 읽어줌(bookId)
+ 		ex) 테이블 컬러명이 member_id인 경우 jsp화면단에서 이 값을 사용 시 memberId로 사용
+ 	 -->
+ 	<settings>
+ 		<setting name="mapUnderscoreToCamelCase" value="true"/>
+ 	</settings>
+ 	<!-- 자주 사용하는 타입의 별칭을 세팅 -->
+ 	<typeAliases> 
+ 		<typeAlias type="kr.or.ddit.vo.AdminVO" alias="adminVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.AlertVO" alias="alertVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.AnswerVO" alias="answerVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ApplicantVO" alias="applicantVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.AttachVO" alias="attachVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.BoardVO" alias="boardVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.CalendarVO" alias="calendarVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.CheckedVO" alias="checkedVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.CostVO" alias="costVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.DocFileVO" alias="docFileVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.DocumentVO" alias="docVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.FAQVO" alias="FAQVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.HistoryVO" alias="HstVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.InvitationVO" alias="invVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.IssueVO" alias="issueVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.JobVO" alias="jobVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.LicenseVO" alias="licenseVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.MemAuthVO" alias="memAuthVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.MemberVO" alias="memberVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.NewsLikeVO" alias="newsLikeVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.NewsVO" alias="newsVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.NoticeVO" alias="noticeVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.PaymentVO" alias="paymentVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.PlanVO" alias="planVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ProfileVO" alias="profileVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ProjectVO" alias="projectVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ProMemVO" alias="proMemVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.QNAVO" alias="QNAVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ReplyVO" alias="replyVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.ResumeVO" alias="resumeVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.RoadMapVO" alias="roadMapVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.RoleVO" alias="roleVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.SubMapVO" alias="subMapVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.SubprojectVO" alias="subprojVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.TaskVO" alias="taskVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.WikiVO" alias="wikiVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.MarkVO" alias="markVO"/>
+ 		<typeAlias type="kr.or.ddit.vo.MainVO" alias="mainVO"/>
+
+ 	</typeAliases>
+ </configuration>
