@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.PaymentMapper">
+	<!-- 1. 결제 등록 -->
+	<insert id="pay" parameterType="paymentVO">
+		<selectKey order="BEFORE" keyProperty="payNo" resultType="String">
+			SELECT NVL(MAX(PAY_NO), TO_CHAR(SYSDATE, 'YYMMDD') || '00')+1 AS PAY_NO FROM PAYMENT
+			WHERE SUBSTR(PAY_NO, 1, 6) = TO_CHAR(SYSDATE, 'YYMMDD')
+		</selectKey>
+		insert into payment (PAY_NO, MEM_NO, PLAN_ID, PAY_METHOD, PAY_SDY, PAY_STTS)
+		values (#{payNo}, #{memNo}, #{planId}, '카드', sysdate, '결제')
+	</insert>
+	
+	<!-- 프로젝트별 결제 내역 -->
+	<select id="paymentHistory" parameterType="int" resultType="paymentVO">
+		SELECT A.PAY_NO, A.MEM_NO, A.PLAN_ID, A.PAY_METHOD, A.PAY_SDY, A.PAY_STTS, B.PROJ_ID, C.PLAN_TTL, C.PLAN_PRICE ,D.MEM_NM
+		FROM PAYMENT A, PROJECT B, PLAN C, MEMBER D
+		WHERE A.PAY_NO = B.PAY_NO
+		AND A.PLAN_ID = C.PLAN_ID
+		AND A.MEM_NO = D.MEM_NO
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 플랜 수정--> 
+	<update id="planUpdate" parameterType="map">
+		UPDATE PROJECT
+		SET PAY_NO = #{payNo}, PLAN_TTL = #{planTtl}
+		WHERE PROJ_ID = #{projId}
+	</update>
+</mapper>

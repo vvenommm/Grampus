@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.PlanMapper">
+
+<!-- 1. 플랜 조회 -->
+	<select id="planList" resultType="map">
+		SELECT
+		    plan_id as "id"
+		   ,plan_ttl as "ttl"
+		   , Plan_Price as "priceNum"
+		   ,to_char(plan_price, '999,999') as "price"
+		FROM
+		    plan
+	</select>
+
+<!-- 2. 플랜 등록 -->
+	<insert id="insertPlan" parameterType="planVO">
+		<selectKey order="BEFORE" keyProperty="planId" resultType="int">
+			select nvl(max(plan_id), 0)+1 from plan
+		</selectKey>
+		insert into plan (PLAN_ID, PLAN_TTL, PLAN_PRICE)
+		values (#{planId}, #{planTtl}, #{planPrice})
+	</insert>
+
+
+<!-- 3. 플랜 수정 -->
+	<update id="updatePrice" parameterType="map">
+		update plan
+		set plan_price = #{planPrice}
+		where plan_id = #{planId}
+	</update>
+
+
+<!-- 4. 플랜 삭제 -->
+	<delete id="deletePlan" parameterType="String">
+		delete from plan where plan_id = #{planId} 
+	</delete>
+	
+	<!-- 5. 특정 플랜 하나만 조회 -->
+	<select id="planOne" parameterType="int" resultType="map">
+		select 
+		    plan_id as "id"
+		   ,plan_ttl as "ttl"
+		   , Plan_Price as "priceNum"
+		   ,trim(to_char(plan_price, 'L999,999')) as "price"
+		FROM
+		    plan
+		WHERE plan_id = #{planId}
+	</select>
+
+</mapper>

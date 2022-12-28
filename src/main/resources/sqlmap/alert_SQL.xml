@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.AlertMapper">
+
+	<!-- 마이페이지 알림함 리스트 조회 -->
+	<select id="alertList" parameterType="alertVO" resultType="alertVO">
+		SELECT DISTINCT B.ALT_NO 
+		          ,B.MEM_NO
+		          ,B.ALT_SEND
+		          ,case when substr(b.ALT_CN, 1, 6) = ' <![CDATA[<]]>p id=' then substr(B.alt_cn, 1, INSTR(B.ALT_CN, '>', 1, 5))
+else b.alt_cn end ALT_CN
+		          ,B.ALT_TM
+		          ,(SELECT MEM_NM FROM MEMBER WHERE MEMBER.MEM_NO=B.ALT_SEND) AS ALT_SEND_NM
+		          ,(SELECT MEM_PHOTO FROM MEMBER WHERE MEMBER.MEM_NO=B.ALT_SEND) AS ALT_PHOTO
+		          ,(SELECT DISTINCT COUNT(*) OVER() AS CNT 
+		            FROM ALERT 
+		            WHERE ALT_STTS = 'N'
+		            AND MEM_NO = #{memNo}
+		            AND ALT_SEND = B.ALT_SEND)AS ALT_CHECK
+		FROM ALERT B,
+		   (SELECT A.ALT_SEND
+		         , MAX(A.ALT_NO) MAX_NO 
+		      FROM ALERT A
+		     WHERE A.MEM_NO=#{memNo} 
+		  GROUP BY  A.ALT_SEND
+		  ) C
+		WHERE B.MEM_NO = #{memNo}
+		AND C.MAX_NO=B.ALT_NO
+		ORDER BY B.ALT_TM DESC
+	</select>
+	
+	<!-- 발신자별 알림 내용 리스트 -->
+	<select id="alertSendList" parameterType="alertVO" resultType="alertVO">
+		SELECT
+		    alt_no
+		   ,mem_no
+		   ,alt_cn
+		   ,alt_tm
+		   ,alt_send
+		   ,(SELECT MEM_NM FROM MEMBER WHERE MEM_NO=ALT_SEND) AS ALT_SEND_NM
+		   ,alt_stts
+		   ,(SELECT MEM_PHOTO FROM MEMBER WHERE MEM_NO = ALT_SEND) AS ALT_PHOTO
+		FROM
+		    alert
+		WHERE MEM_NO=#{memNo}
+		AND ALT_SEND =#{altSend}
+		ORDER BY ALT_NO DESC
+	</select>
+
+    <!-- 확인하지 않은 알림갯수  -->
+    <select id="alertListCnt" parameterType="alertVO" resultType="alertVO">
+    	SELECT ALT_NO
+		      ,ALT_CN
+		      ,ALT_SEND
+		      ,COUNT(*) OVER() AS CNT
+		FROM ALERT
+		WHERE MEM_NO = #{memNo}
+		AND ALT_STTS = 'N'
+    </select>
+    
+    <!-- 리스트에서 발신자 클릭시 상태 변경 -->
+    <update id="updateSendStts" parameterType="alertVO">
+    	UPDATE ALERT
+		SET ALT_STTS ='Y'
+		WHERE ALT_SEND = #{altSend}
+		AND MEM_NO = #{memNo}
+    </update>
+    
+    <!-- 알림 삭제하기 -->
+    <delete id="alertDelete" parameterType="int">
+    	DELETE 
+    	FROM ALERT
+    	WHERE ALT_NO= #{altNo}
+    </delete>
+    
+    
+    
+    <!-- ///////////////////////////// 초대장 ///////////////////////////// -->
+    <!-- 이메일 초대장 발송 시 알림함으로도 초대 알림 송신 -->
+    <insert id="invitation" parameterType="alertVO">
+    	<selectKey resultType="int" keyProperty="altNo" order="BEFORE">
+        	SELECT NVL(MAX(ALT_NO), 0)+1 FROM ALERT
+    	</selectKey>
+		INSERT INTO ALERT (
+		    ALT_NO
+		   ,MEM_NO
+		   ,ALT_CN
+		   ,ALT_TM
+		   ,ALT_SEND
+		   ,ALT_STTS
+		   ,ALT_LINK
+		) VALUES (
+		    #{altNo}
+		   ,#{memNo}
+		   ,#{altCn}
+		   ,sysdate
+		   ,#{altSend}
+		   ,'N'
+		   ,#{altLink}
+		)
+    </insert>
+    
+    <!-- 알림 개수 카운트 -->
+    <select id="alertCount" parameterType="String" resultType="int">
+		select count(*) 
+		from alert 
+		where mem_no = #{memNo}   	
+    </select>
+    
+    <!-- 알림 가져오기 -->
+    <select id="alertSelect" parameterType="hashMap" resultType="hashMap">
+		select rownum, al.*
+		from (
+		select a.alt_no
+		    ,a.mem_no
+		    ,a.alt_cn
+		    ,a.alt_tm
+		    ,a.alt_send
+		    ,m.mem_nm
+		    ,a.alt_stts
+		    ,a.alt_link
+		from alert a, member m
+		where a.mem_no = #{memNo}
+		and a.alt_stts = 'N'
+		and m.mem_no = a.alt_send
+		order by a.alt_tm desc
+		) al
+		where <![CDATA[rownum <= #{divcnt} ]]>    
+    </select>
+    
+    <!-- 알림 등록 -->
+    <insert id="alertInsert" parameterType="hashMap">
+    	insert into alert(alt_no
+    		,mem_no
+    		,alt_cn
+    		,alt_tm
+    		,alt_send
+    		,alt_stts
+    		,alt_link
+    	)
+		values((select nvl(max(alt_no), 0)+1 from alert)
+			,#{memNo}
+			,#{altCn}
+			,sysdate
+			,#{altSend}
+			,'N'
+			,#{altLink}
+		)
+    </insert>
+    
+    <!-- 알림 확인 시 확인 내역 변경 -->
+    <update id="alertCheck" parameterType="int">
+    	update alert
+    	set alt_stts = 'Y'
+    	where alt_no = #{altNo}
+    </update>
+</mapper>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.ApplicantMapper">
+	<!-- 지원자 등록 -->
+	<insert id="appliInset" parameterType="hashMap">
+		insert into applicant(proj_id,mem_no,app_yn) values(#{projId}, #{memNo},'W')
+	</insert>
+	
+	<!-- 지원자수 증가 -->
+	<update id="appliCntUp" parameterType="int">
+		update job set job_volcnt = job_volcnt+1 where proj_id = #{projId}
+	</update>
+		
+	<!-- 이미 프로젝트 멤버일 때 구인공고 지원 불가 -->
+	<select id="promemChk" parameterType="map" resultType="int">
+		sELECT COUNT(*)
+		FROM PROMEM
+		WHERE MEM_NO = #{memNo}
+		AND PROJ_ID = #{projId}
+	</select>
+
+	
+	<!-- 구인공고 지원 여부 확인 -->
+	<select id="appliChk" parameterType="hashMap" resultType="int">
+		select count(*) from applicant where proj_id = #{projId} and mem_no = #{memNo}
+	</select>
+	
+	<!-- 지원자 업데이트 -->
+	<update id="appliUpdate" parameterType="hashMap">
+		update applicant set app_yn=#{stat} where proj_id=#{projId} and mem_no=#{memNo}
+	</update>
+	
+	<!-- 지원자 승인시 프로젝트 맴버 등록 -->
+	<insert id="promemInsert" parameterType="hashMap">
+		<selectKey keyProperty="pmemCd" resultType="int" order="BEFORE">
+			SELECT MAX(NVL(PMEM_CD, 0))+1 FROM PROMEM
+		</selectKey>
+		INSERT INTO PROMEM(PMEM_CD, PROJ_ID, MEM_NO, ROLE_ID, PMEM_IDY, PMEM_ODY, PMEM_RSVP, PMEM_LV, PMEM_GRP) 
+		VALUES(#{pmemCd},#{projId},#{memNo},'R07', sysdate, null,#{stat},(SELECT SUBSTR(RSM_CAREER, 0, 2) FROM RESUME WHERE MEM_NO = #{memNo}),#{grp})
+	</insert>
+	
+	<!-- 지원한 리스트 -->
+	<select id="jobApplicantList" parameterType="applicantVO" resultType="applicantVO">
+		SELECT A.proj_id 
+		     , A.mem_no
+		     , A.app_yn
+		     , B.JOB_CN
+		     , B.JOB_WDY
+		     , B.JOB_EDY
+		     , B.JOB_VOLCNT
+		     , B.JOB_RECRU
+		     , B.JOB_TECH
+		     , C.PROJ_TTL
+		     , C.PROJ_CN
+		     , C.PROJ_SDY
+		     , C.PROJ_EDY 
+		     , TO_CHAR(C.PROJ_BGT,'999,999,999,999,999') AS BGT
+		     ,(TO_DATE(B.JOB_EDY) - TO_DATE(sysdate))DDAY , (TO_DATE(C.PROJ_EDY) - TO_DATE(C.PROJ_SDY)) AS PROJ_GIGAN
+		     , COUNT(*) OVER() AS CNT
+		FROM applicant A, JOB B, PROJECT C
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PROJ_ID = C.PROJ_ID
+		AND MEM_NO=#{memNo}
+		AND B.JOB_EDY > SYSDATE
+		AND A.APP_YN = 'W'
+		AND C.PROJ_TTL like '%'||#{scon}||'%'
+		ORDER BY JOB_EDY ASC
+	</select>
+	
+	<!-- 지원취소 -->
+	<delete id="applicantDelete" parameterType="applicantVO">
+		DELETE FROM applicant
+		WHERE proj_id = #{projId}
+		AND MEM_NO = #{memNo}
+	</delete>
+</mapper>

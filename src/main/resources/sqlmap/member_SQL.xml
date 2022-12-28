@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.MemberMapper">
+	
+
+	
+	<!-- 로그인 -->
+	<!-- map : {memId=a001, password=java} -->
+ 	<select id="memberLogin" parameterType="hashMap" resultType="hashMap">
+ 		SELECT MEM_NO "memNo", MEM_ID "memId", MEM_PW "memPw", MEM_NM "memNm" 
+		FROM MEMBER 
+		WHERE MEM_ID = #{memId} AND MEM_PW = #{password}
+	</select>
+	
+	<!-- 구글 로그인 -->
+	<select id="googleLogin" parameterType="hashMap" resultType="hashMap">
+ 		SELECT MEM_NO "memNo", MEM_ID "memId", MEM_PW "memPw", MEM_NM "memNm" 
+		FROM MEMBER 
+		WHERE MEM_ID = #{memId}
+	</select>
+	
+	<!-- 아이디 중복 체크 -->
+	<select id="dupChk" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*) cnt
+		FROM   MEMBER
+		WHERE  MEM_ID = #{memId}
+	</select>
+	
+	<!-- 회원번호 생성 -->
+	<select id="makeMemberNo" resultType="String">
+		SELECT REPLACE(CONCAT('M',TO_CHAR(MAX(NVL(TO_NUMBER(SUBSTR(MEM_NO,2)),0))+1,'0000')), ' ','') MEM_NO FROM MEMBER
+	</select>
+	
+	<!-- 회원가입 -->
+	<insert id="insert" parameterType="memberVO">
+		INSERT INTO MEMBER(MEM_NO, MEM_ID, MEM_PW, MEM_NM)
+		VALUES(#{memNo},#{memId},#{memPw},#{memNm})
+	</insert>
+	
+	<!-- 구글회원가입 -->
+	<insert id="insert2" parameterType="hashMap">
+		<selectKey order="BEFORE" resultType="String" keyProperty="googlememNo">
+			SELECT REPLACE(CONCAT('M',TO_CHAR(MAX(NVL(TO_NUMBER(SUBSTR(MEM_NO,2)),0))+1,'0000')), ' ','') MEM_NO FROM MEMBER
+		</selectKey>
+		INSERT INTO MEMBER(MEM_NO, MEM_ID, MEM_PW, MEM_NM)
+		VALUES(#{googlememNo},#{memId},'0000',#{memNm})
+	</insert>
+	
+	<!-- 마이페이지조회 -->
+	<select id="memDetail" parameterType="String" resultType="memberVO">
+		SELECT MEM_NO, MEM_ID, MEM_PW, MEM_NM, MEM_PHOTO
+		FROM MEMBER WHERE MEM_NO = #{memNo}
+	</select>
+	
+	<!-- 아이디, 비밀번호 변경 -->
+	<update id="memUpdate" parameterType="memberVO">
+		UPDATE MEMBER
+		SET MEM_PW = #{memPw}
+		<if test="!memId.equals('') and memId!=null">
+		 ,MEM_ID = #{memId}
+		</if>
+		WHERE MEM_NO = #{memNo}
+	</update>
+	
+	<!-- 사진 변경 -->
+	<update id="memPhotoUpdate" parameterType="resumeVO">
+		<if test="!memPhoto.equals('') and memPhoto!=null">
+		UPDATE MEMBER
+		SET MEM_PHOTO = #{memPhoto}
+		WHERE MEM_NO = #{memNo}
+		</if>
+	</update>
+	
+	<!-- 전체 맴버 검색  -->
+	<select id="searchMem" parameterType="memberVO" resultType="hashMap">
+		SELECT DISTINCT M.MEM_NO
+	         , M.MEM_ID
+	         , M.MEM_NM
+	         , M.MEM_PHOTO
+		<if test="cnt == 1">
+	         , P.PROF_NM
+	         , P.PROF_PHOTO
+		FROM MEMBER M, PROFILE P
+		WHERE M.MEM_NO = P.MEM_NO
+		AND M.MEM_NO IN (SELECT DISTINCT MEM_NO FROM PROMEM WHERE PROJ_ID = #{projId})
+		AND P.PROJ_ID = #{projId}
+		</if>
+		<if test="cnt == 0">
+		FROM MEMBER M, PROFILE P
+		WHERE M.MEM_NO = P.MEM_NO
+		AND M.MEM_NO NOT IN (SELECT DISTINCT MEM_NO FROM PROMEM WHERE PROJ_ID = #{projId})
+		</if>
+		AND M.MEM_ID LIKE '%' || #{content} || '%'
+	</select>
+	
+	<!-- 초대장 보낼 때 회원한테 보내는 것인지 구분 -->
+	<select id="ifMem" parameterType="memberVO" resultType="memberVO">
+		SELECT MEM_NO
+		    , MEM_ID
+		    , MEM_NM
+		    , MEM_PHOTO
+		FROM MEMBER
+		WHERE MEM_ID = #{memId}
+	</select>
+	
+		
+	<!-- 아이디 확인 체크 -->
+	<select id="idCheck" parameterType="memberVO" resultType="memberVO">
+		SELECT COUNT(*) AS CNT FROM MEMBER WHERE MEM_ID = #{memId}
+	</select>
+	
+	<!-- 임시 비밀번호로 저장 -->
+	<update id="findPw" parameterType="memberVO">
+		UPDATE MEMBER SET MEM_PW = #{memPw}
+		WHERE MEM_ID = #{memId}
+	</update>
+	
+</mapper>

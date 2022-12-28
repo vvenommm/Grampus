@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.LicenseMapper">
+
+<!-- 자격증 수정용 리스트 -->
+<select id="licenseList" parameterType="String" resultType="licenseVO">
+	SELECT LICE_NO, MEM_NO, LICE_NM, LICE_ISDY, LICE_EXDY, LICE_FROM, LICE_SM
+	FROM LICENSE
+	WHERE MEM_NO = #{memNo}
+</select>
+
+<insert id="licenseInsert" parameterType="licenseVO">
+	<selectKey order="BEFORE" resultType="int" keyProperty="liceNo">
+		SELECT MAX(LICE_NO) +1 FROM LICENSE
+	</selectKey>
+	INSERT INTO LICENSE(LICE_NO, MEM_NO, LICE_NM, LICE_ISDY, LICE_EXDY, LICE_FROM, LICE_SM)
+	VALUES(#{liceNo},#{memNo},#{liceNm},#{liceIsdy},#{liceExdy},#{liceFrom},#{liceSm})
+</insert>
+
+<delete id="licenseDelete" parameterType="int">
+	DELETE FROM LICENSE
+	WHERE LICE_NO = #{liceNo}
+</delete>
+
+<!-- 자격증 조회용 리스트 -->
+<select id="licenseList2" parameterType="String" resultType="licenseVO">
+	SELECT LISTAGG(LICE_NM,' | ')WITHIN GROUP(ORDER BY LICE_NM) AS LICE_NM
+	FROM LICENSE
+	WHERE MEM_NO=#{memNo}
+</select>
+</mapper>

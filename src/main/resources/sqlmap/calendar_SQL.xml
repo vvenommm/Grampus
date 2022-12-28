@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.CalendarMapper">
+	<!-- 개인 일정 -->
+	<select id="selectCalendar" parameterType="hashMap" resultType="hashMap">
+		SELECT C.CAL_NO, C.PMEM_CD, C.CAL_SDY, C.CAL_EDY, C.CAL_CN, C.CAL_GROUP, A.PROF_NM, A.PROF_PHOTO
+		FROM CALENDAR C, (SELECT PROF_NM, PROF_PHOTO FROM PROFILE WHERE MEM_NO = #{memNo} AND PROJ_ID = #{projId}) A
+		WHERE C.PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE MEM_NO = #{memNo})
+		AND C.CAL_GROUP = 'N'
+		ORDER BY C.CAL_SDY DESC
+	</select>
+	
+	<!-- 일정 삭제 -->
+	<delete id="deleteCalendar" parameterType="string">
+		DELETE FROM CALENDAR
+		WHERE CAL_NO = #{calNo}
+	</delete>
+	
+	<!-- 일정 수정 -->
+	<update id="updateCalendar" parameterType="calendarVO">
+		UPDATE CALENDAR
+		SET CAL_SDY = #{calSdy}, CAL_EDY = #{calEdy}, CAL_CN = #{calCn}, CAL_GROUP = #{calGroup}
+		WHERE CAL_NO = #{calNo} 
+	</update>
+	
+	<!-- 일정 모두 삭제 -->
+	<delete id="deleteAllCalendar">
+		DELETE FROM CALENDAR
+	</delete>
+	
+	<!-- calNo max값 구하기 -->
+	<select id="maxcalNo" resultType="string">
+		SELECT MAX(CAL_NO)+1 FROM CALENDAR
+	</select>
+	
+	<!-- 새 일정 생성 -->
+	<insert id="createCalendar" parameterType="calendarVO">
+		INSERT INTO CALENDAR
+		VALUES(CAL_NO.NEXTVAL, #{pmemCd}, #{calSdy}, #{calEdy}, #{calCn}, #{calGroup})
+	</insert>
+	
+	<!-- 프로젝트 멤버 코드 구하기 -->
+	<select id="selectPmemCd" parameterType="hashMap" resultType="int">
+		SELECT PMEM_CD
+		FROM PROMEM
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_GRP = #{pmemGrp}
+		AND MEM_NO = #{memNo}
+	</select>
+	
+	<!-- 그룹 일정 가져오기(PM용) -->
+	<select id="groupCalendarPm" parameterType="hashMap" resultType="hashMap">
+		SELECT CAL.CAL_NO, CAL.PMEM_CD, CAL.CAL_SDY, CAL.CAL_EDY, CAL.CAL_CN, CAL.CAL_GROUP, C.PROF_NM, C.MEM_NO
+		FROM CALENDAR CAL, (SELECT A.MEM_NO, B.PROF_NM, A.PMEM_CD 
+		                    FROM (SELECT PMEM_CD, MEM_NO FROM PROMEM WHERE PROJ_ID = #{projId}) A,
+		                         (SELECT PROF_NM, MEM_NO FROM PROFILE WHERE PROJ_ID = #{projId}) B
+		                    WHERE A.MEM_NO = B.MEM_NO) C
+		WHERE CAL.CAL_GROUP = 'Y'
+		AND CAL.PMEM_CD IN (SELECT PMEM_CD
+		                    FROM PROMEM
+		                    WHERE PROJ_ID = #{projId})
+		AND CAL.PMEM_CD = C.PMEM_CD
+		ORDER BY CAL.CAL_SDY DESC
+	</select>
+	
+	<!-- 그룹 일정 가져오기(나머지용) -->
+	<select id="groupCalendarOther" parameterType="hashMap" resultType="hashMap">
+		SELECT CAL.CAL_NO, CAL.PMEM_CD, CAL.CAL_SDY, CAL.CAL_EDY, CAL.CAL_CN, CAL.CAL_GROUP, C.PROF_NM, C.MEM_NO
+		FROM CALENDAR CAL, (SELECT A.MEM_NO, B.PROF_NM, A.PMEM_CD 
+		                    FROM (SELECT PMEM_CD, MEM_NO FROM PROMEM WHERE PROJ_ID = #{projId}) A,
+		                         (SELECT PROF_NM, MEM_NO FROM PROFILE WHERE PROJ_ID = #{projId}) B
+		                    WHERE A.MEM_NO = B.MEM_NO) C
+		WHERE CAL.CAL_GROUP = 'Y'
+		AND CAL.PMEM_CD IN (SELECT PMEM_CD
+		                    FROM PROMEM
+		                    WHERE PROJ_ID = #{projId}
+		                    AND PMEM_GRP = #{pmemGrp})
+		AND CAL.PMEM_CD = C.PMEM_CD
+		ORDER BY CAL.CAL_SDY DESC
+	</select>
+	
+	
+	
+</mapper>

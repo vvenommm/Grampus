@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.AttachMapper">
+	<insert id="attachInsert" parameterType="attachVO">
+		<selectKey order="BEFORE" resultType="int" keyProperty="battNo">
+			SELECT NVL(MAX(BATT_NO),0)+1 FROM ATTACHF
+		</selectKey>
+		INSERT INTO ATTACHF(BATT_NO, BRD_NO, BATT_NM, BATT_SZ, BATT_ULDDY, BATT_SAVEPATH) 
+		VALUES (#{battNo}, #{brdNo}, #{battNm}, #{battSz} , SYSDATE , NULL)
+	</insert>
+	
+	<!-- 첨부파일 조회 -->
+	<select id="attachList" parameterType="attachVO" resultType="attachVO">
+		SELECT A.BATT_NO, A.BRD_NO, A.BATT_NM, A.BATT_SZ, COUNT(*) OVER() AS CNT
+		FROM BOARD B, PROMEM PR, PROJECT PJ, ATTACHF A
+		WHERE B.PMEM_CD = PR.PMEM_CD
+		AND PR.PROJ_ID = PJ.PROJ_ID
+		AND B.BRD_NO = A.BRD_NO
+		AND B.BRD_NO  = #{brdNo}
+		AND PJ.PROJ_ID = #{projId}
+		AND PR.PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 첨부파일 삭제 -->
+	<delete id="attachDelete" parameterType="int">
+		DELETE FROM ATTACHF WHERE BATT_NO = #{battNo}
+    </delete>
+</mapper>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.ReplyMapper">
+	<select id="replyList" parameterType="replyVO" resultType="replyVO">
+		select DISTINCT A.rpl_no,A.brd_no ,A.rpl_cn ,A.rpl_dy ,A.pmem_cd, C.MEM_NO,D.MEM_ID,E.PROJ_ID ,E.PROF_NM, E.PROF_PHOTO, COUNT(*) OVER() AS CNT
+		from reply A, BOARD B, PROMEM C, MEMBER D, PROFILE E
+		where A.PMEM_CD = B.PMEM_CD(+)
+		AND A.PMEM_CD = C.PMEM_CD
+		AND C.MEM_NO = D.MEM_NO
+		AND D.MEM_NO = E.MEM_NO
+		AND E.PROJ_ID = #{projId}
+		AND A.BRD_NO = #{brdNo}
+		AND C.PMEM_GRP = #{pmemGrp}
+	</select>
+
+	<!-- 게시판 댓글 삽입 -->
+	<insert id="replyInsert" parameterType="replyVO">
+		<selectKey order="BEFORE" resultType="String" keyProperty="rplNo">
+			SELECT NVL(MAX(TO_NUMBER(RPL_NO)),0)+1 FROM REPLY
+		</selectKey>
+		
+		INSERT INTO REPLY(RPL_NO, BRD_NO, RPL_CN, RPL_DY, PMEM_CD)
+		VALUES(#{rplNo}, #{brdNo}, #{rplCn}, SYSDATE, #{pmemCd})
+	</insert>
+	
+	<!-- 게시판 댓글 수정 -->
+	<update id="replyUpdate" parameterType="replyVO">
+		UPDATE REPLY
+		SET RPL_CN = #{rplCn}, RPL_DY = SYSDATE
+		WHERE RPL_NO = #{rplNo}
+	</update>
+	
+	<!-- 게시판 댓글 삭제 -->
+	<delete id="replyDelete" parameterType="String">
+		DELETE FROM REPLY WHERE RPL_NO = #{rplNo}
+    </delete>
+    
+    <!-- PMEMCD 가져오기 -->
+    <select id="pmemCdGet" parameterType="replyVO" resultType="replyVO">
+    	SELECT PMEM_CD FROM PROMEM
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_GRP = #{pmemGrp}
+		AND MEM_NO = #{memNo}
+    </select>
+	
+	<!-- 알림 전송을 위한 정보 가져오기 -->
+	<select id="alertInfo" parameterType="String" resultType="hashMap">
+		select b.brd_head, p.mem_no, b.brd_ttl, p.proj_id from board b, promem p
+		where b.brd_no = #{brdNo}
+		and p.pmem_cd = b.pmem_cd
+	</select>
+</mapper>

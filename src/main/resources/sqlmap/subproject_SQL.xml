@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.SubprojectMapper">
+<!-- 그룹화 할 때에만 insert 되는 테이블이기 때문에 여기에 값 없으면 그룹이 없는 것 -->
+
+
+<!-- 그룹 있는지 없는지 select -->
+	<select id="getGrpList" parameterType="int" resultType="subprojVO">
+		SELECT SPROJ_TTL
+		     , PROJ_ID
+		FROM SUBPROJECT
+		WHERE PROJ_ID = #{projId}
+		order by case when SPROJ_TTL = '전체' then 0
+		when SPROJ_TTL between '가' and '힣' then 1
+		when (SPROJ_TTL <![CDATA[<]]> '가' or SPROJ_TTL <![CDATA[>]]> '힣') then 2
+		when SPROJ_TTL = '미정' then 3
+		else 4 end asc, SPROJ_TTL asc
+	</select>
+
+<!-- 구인공고 승인할 때 그룹이 있는 프로젝트에서 승인한 사람 그룹 '미정'으로 들어가게 -->
+	<insert id="addUngrp" parameterType="int">
+		INSERT INTO SUBPROJECT (
+		    SPROJ_TTL
+		   ,PROJ_ID
+		) VALUES (
+		    '미정'
+		   ,#{projId}
+		)
+	</insert>
+	
+<!-- 구인공고 승인한 사람 그룹 미정인 사람 없을 때 그룹 없애기 -->
+	<delete id="delUngrp" parameterType="int">
+		DELETE FROM SUBPROJECT
+		WHERE SPROJ_TTL = '미정'
+		AND   PROJ_ID = #{projId}
+	</delete>
+	
+<!-- 구인공고 승인한 사람 그룹 미정인 사람 없을 때 그룹 없애면서 전체그룹도 없애기 -->
+	<delete id="delUngrp2" parameterType="int">
+		DELETE FROM SUBPROJECT
+		WHERE SPROJ_TTL = '전체'
+		AND   PROJ_ID = #{projId}
+	</delete>
+	
+<!-- 그룹 미정인 사람 있다고 알려주는 용 -->
+	<select id="ungrpAlert" parameterType="int" resultType="subprojVO">
+		SELECT COUNT(*) cnt
+		FROM SUBPROJECT
+		WHERE PROJ_ID = #{projId}
+		AND SPROJ_TTL = '미정'
+	</select>
+	
+<!-- 그룹 생성하면 insert -->
+	<insert id="addGrp" parameterType="subprojVO">
+		INSERT INTO SUBPROJECT (
+		    SPROJ_TTL
+		   ,PROJ_ID
+		) VALUES (
+		    #{sprojTtl}
+		   ,#{projId}
+		)
+	</insert>
+	
+<!-- 그룹명 변경(수정) -->
+	<update id="newSprojTtl" parameterType="subprojVO">
+		UPDATE SUBPROJECT
+		SET SPROJ_TTL = #{newTtl}
+		WHERE PROJ_ID = #{projId}
+		AND SPROJ_TTL = #{sprojTtl}
+	</update>
+
+<!-- 그룹 삭제 -->
+
+
+
+</mapper>

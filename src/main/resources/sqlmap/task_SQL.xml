@@ -1,0 +1,735 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.TaskMapper">
+	<!-- 일감 리스트 출력(PM용, 모두) -->
+	<select id="taskList" parameterType="hashMap" resultType="taskVO">
+		WITH U AS (
+			SELECT	  ROW_NUMBER() OVER (ORDER BY Z.TASK_NO DESC) RNUM
+					, Z.*
+			FROM (
+				SELECT T.TASK_NO, T.PROJ_ID, T.TASK_TTL, T.TASK_CN, TO_CHAR(TASK_SDY, 'YYYY.MM.DD') TASK_SDY, 
+					   TO_CHAR(TASK_EDY, 'YYYY.MM.DD') TASK_EDY, T.TASK_PRIORITY, 
+				       T.TASK_STTS, T.TASK_PROGRESS, T.TASK_PARENT, T.PMEM_CD, B.PROF_NM, B.MEM_NO, B.PMEM_GRP
+				FROM TASK T, (
+				                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+				                FROM PROMEM PM,(
+				                                SELECT PRO.PROF_NM, M.MEM_NO
+				                                FROM PROFILE PRO, MEMBER M
+				                                WHERE PRO.MEM_NO = M.MEM_NO
+				                                AND PRO.PROJ_ID = #{projId}
+				                                ) A
+				                WHERE PM.MEM_NO = A.MEM_NO
+				                AND PM.PROJ_ID = #{projId}
+				                ) B
+				WHERE T.PROJ_ID = #{projId}
+				AND T.PMEM_CD = B.PMEM_CD
+			) Z
+		)
+		SELECT U.*
+		FROM U
+		<if test="chkP != 0">
+			WHERE U.RNUM BETWEEN (#{currentPage} * #{show}) - (#{show}-1) AND (#{currentPage} * #{show})
+		</if>
+	</select>
+	
+	<!-- 일감 리스트 출력(나머지용) -->
+	<select id="taskList2" parameterType="hashMap" resultType="taskVO">
+		WITH U AS (
+			SELECT	  ROW_NUMBER() OVER (ORDER BY Z.TASK_NO DESC) RNUM
+					, Z.*
+			FROM (
+					SELECT T.TASK_NO, T.PROJ_ID, T.TASK_TTL, T.TASK_CN, TO_CHAR(TASK_SDY, 'YYYY.MM.DD') TASK_SDY, 
+						   TO_CHAR(TASK_EDY, 'YYYY.MM.DD') TASK_EDY, T.TASK_PRIORITY, 
+					       T.TASK_STTS, T.TASK_PROGRESS, T.TASK_PARENT, T.PMEM_CD, B.PROF_NM, B.MEM_NO, B.PMEM_GRP, B.PROF_PHOTO
+					FROM TASK T, (
+					                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO
+					                FROM PROMEM PM,(
+					                                SELECT PRO.PROF_NM, M.MEM_NO, PRO.PROF_PHOTO
+					                                FROM PROFILE PRO, MEMBER M
+					                                WHERE PRO.MEM_NO = M.MEM_NO
+					                                AND PRO.PROJ_ID = #{projId}
+					                                ) A
+					                WHERE PM.MEM_NO = A.MEM_NO
+					                AND PM.PROJ_ID = #{projId}
+					                ) B
+					WHERE T.PROJ_ID = #{projId}
+					AND T.PMEM_CD = B.PMEM_CD
+					AND B.PMEM_GRP = #{pmemGrp}
+					ORDER BY T.TASK_NO DESC
+			) Z
+		)
+		SELECT U.*
+		FROM U
+		<if test="chkP != 0">
+			WHERE U.RNUM BETWEEN (#{currentPage} * #{show}) - (#{show}-1) AND (#{currentPage} * #{show})
+		</if>
+	</select>
+	
+	<!-- 같은 그룹 멤버(담당자) 출력하기 (새 일감 등록 시) -->
+	<select id="sameGrpMem" parameterType="hashMap" resultType="hashMap">
+		SELECT PRO.MEM_NO, PRO.PROF_NM, A.PMEM_GRP, A.PMEM_CD
+		FROM PROFILE PRO, (SELECT MEM_NO, PMEM_GRP, PMEM_CD
+		                    FROM PROMEM
+		                    WHERE PMEM_GRP = #{pmemGrp}
+		                    AND PROJ_ID = #{projId}) A
+		WHERE PRO.MEM_NO = A.MEM_NO
+		AND PROJ_ID = #{projId}
+		ORDER BY PRO.MEM_NO ASC
+	</select>
+	
+	<!-- 같은 그룹 멤버(담당자) 출력하기 (일감 수정 시) -->
+	<select id="sameGrpMemUp" parameterType="hashMap" resultType="hashMap">
+		SELECT PRO.PROF_NM, PRO.MEM_NO
+		FROM PROFILE PRO, (
+		                    SELECT P.PMEM_CD, P.MEM_NO
+		                    FROM PROMEM P, (SELECT PM.PMEM_GRP, PM.MEM_NO
+		                                        FROM PROMEM PM, (SELECT PMEM_CD
+		                                                         FROM TASK
+		                                                         WHERE TASK_NO = #{taskNo}) A
+		                                        WHERE PM.PROJ_ID = #{projId}
+		                                        AND PM.PMEM_CD = A.PMEM_CD) B
+		                    WHERE P.PMEM_GRP = B.PMEM_GRP
+		                    AND PROJ_ID = #{projId}
+		                    ) C
+		WHERE PRO.MEM_NO = C.MEM_NO
+		AND PROJ_ID = #{projId}
+		ORDER BY PRO.MEM_NO ASC
+	</select>
+	
+	<!-- 새 일감 등록 -->
+	<insert id="insertTask" parameterType="hashMap">
+		INSERT INTO TASK(TASK_NO, PROJ_ID, TASK_TTL, TASK_CN, TASK_SDY, TASK_EDY, 
+                 TASK_PRIORITY, TASK_STTS, TASK_PROGRESS, TASK_PARENT, PMEM_CD)
+		VALUES(TASK_NO.NEXTVAL, #{projId}, #{taskTtl}, #{taskCn}, #{taskSdy}, #{taskEdy}, #{taskPriority}, 
+				#{taskStts}, #{taskProgress}, #{taskParent}, (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp}))
+		<selectKey resultType="int" keyProperty="taskNo" order="AFTER">
+			select nvl(max(task_no), 0) from task
+		</selectKey>
+	</insert>
+	
+	<!-- 일감 상세 정보 -->
+	<select id="taskDetail" parameterType="taskVO" resultType="taskVO">
+		SELECT TASK_NO, PROJ_ID, TASK_TTL, TASK_CN, TO_CHAR(TASK_SDY, 'YYYY.MM.DD') TASK_SDY, TO_CHAR(TASK_EDY, 'YYYY.MM.DD') TASK_EDY, TASK_PRIORITY, TASK_STTS, 
+			   TASK_PROGRESS, TASK_PARENT, PMEM_CD, B.PROF_NM, B.MEM_NO
+		FROM TASK, (SELECT PRO.PROF_NM, A.MEM_NO
+		            FROM PROFILE PRO, (SELECT PM.MEM_NO
+		                                FROM TASK T, PROMEM PM
+		                                WHERE T.PMEM_CD = PM.PMEM_CD
+		                                AND T.TASK_NO = #{taskNo}) A
+		            WHERE PRO.MEM_NO = A.MEM_NO
+		            AND PROJ_ID = #{projId}) B
+		WHERE TASK_NO = #{taskNo}
+	</select>
+	
+	<!-- 하위 일감 검색 -->
+	<select id="taskChild" parameterType="hashMap" resultType="taskVO">
+		SELECT T.TASK_NO, T.PROJ_ID, T.TASK_TTL, T.TASK_CN, TO_CHAR(T.TASK_SDY, 'YYYY.MM.DD') TASK_SDY, 
+		       TO_CHAR(T.TASK_EDY, 'YYYY.MM.DD') TASK_EDY, T.TASK_PRIORITY, T.TASK_STTS, 
+		       T.TASK_PROGRESS, T.TASK_PARENT, T.PMEM_CD, B.PROF_NM, B.MEM_NO
+		FROM TASK T, (
+		            SELECT PRO.PROF_NM, A.MEM_NO, A.PMEM_CD
+		            FROM PROFILE PRO, (SELECT DISTINCT PM.MEM_NO, PM.PMEM_GRP, PM.PMEM_CD
+		                                FROM TASK T, PROMEM PM
+		                                WHERE T.PMEM_CD = PM.PMEM_CD
+		                                AND T.TASK_PARENT = #{taskParent}
+		                                AND PM.PMEM_GRP = #{pmemGrp}) A
+		            WHERE PRO.MEM_NO = A.MEM_NO
+		            AND PROJ_ID = #{projId}) B
+		WHERE T.TASK_PARENT = #{taskParent}
+		AND T.PMEM_CD = B.PMEM_CD
+		AND T.PROJ_ID = #{projId}
+		ORDER BY T.TASK_NO DESC
+	</select>
+	
+	<!-- 상위 일감 검색 -->
+	<select id="taskParent" parameterType="taskVO" resultType="taskVO">
+		SELECT T.TASK_NO, T.PROJ_ID, T.TASK_TTL, T.TASK_CN, TO_CHAR(T.TASK_SDY, 'YYYY.MM.DD') TASK_SDY, TO_CHAR(T.TASK_EDY, 'YYYY.MM.DD') TASK_EDY, 
+		       T.TASK_PRIORITY, T.TASK_STTS, T.TASK_PROGRESS, T.TASK_PARENT, T.PMEM_CD, C.PROF_NM, C.MEM_NO
+		FROM TASK T, (SELECT TASK_PARENT, B.PROF_NM, B.MEM_NO
+		              FROM TASK, (SELECT PRO.PROF_NM, A.MEM_NO
+		                          FROM PROFILE PRO, (SELECT PM.MEM_NO
+		                                             FROM TASK T, PROMEM PM
+		                                             WHERE T.PMEM_CD = PM.PMEM_CD
+		                                             AND T.TASK_NO = #{taskNo}
+		                                             AND T.PROJ_ID = #{projId}) A
+		                          WHERE PRO.MEM_NO = A.MEM_NO
+		                          AND PROJ_ID = #{projId}) B
+		              WHERE TASK_NO = #{taskNo}
+		              AND PROJ_ID = #{projId}) C
+		WHERE PROJ_ID = #{projId}
+		AND T.TASK_NO = C.TASK_PARENT
+		ORDER BY TASK_NO DESC
+	</select>
+	
+	<!-- 일감 삭제 -->
+	<delete id="deleteTask" parameterType="string">
+		DELETE FROM TASK
+		WHERE TASK_NO = #{taskNo}
+	</delete>
+	
+	<!-- 삭제된 일감을 상위일감으로 가진 일감의 상위일감 null로 변경 -->
+	<update id="updateTaskParent" parameterType="string">
+		UPDATE TASK 
+		SET TASK_PARENT = NULL
+		WHERE TASK_PARENT = #{taskParent}
+	</update>
+	
+	<!-- 승인 반려를 위한 권한 체크 -->
+	<select id="checkRole" parameterType="proMemVO" resultType="proMemVO">
+		SELECT DISTINCT ROLE_ID
+		FROM PROMEM
+		WHERE MEM_NO = #{memNo}
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 일감 승인/반려 처리 -->
+	<update id="updateStts" parameterType="taskVO">
+		UPDATE TASK
+		SET TASK_STTS = #{taskStts}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 일감 수정 -->
+	<update id="updateTask" parameterType="hashMap">
+		<selectKey order="BEFORE" resultType="int" keyProperty="pmemCd">
+			SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp}
+		</selectKey>
+		UPDATE TASK 
+		SET TASK_TTL = #{taskTtl}, TASK_CN = #{taskCn}, TASK_SDY = #{taskSdy}, TASK_EDY = #{taskEdy},
+			TASK_PRIORITY = #{taskPriority}, TASK_STTS = #{taskStts}, TASK_PROGRESS = #{taskProgress}, TASK_PARENT = #{taskParent},
+			PMEM_CD = #{pmemCd}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 전체 일감 개수(PM용) -->
+	<select id="countTask" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 전체 일감 개수(나머지용) -->
+	<select id="countTask2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 신규 중 일감 개수(PM용) -->
+	<select id="countTaskNew" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '신규'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 신규 중 일감 개수(나머지용) -->
+	<select id="countTaskNew2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '신규'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 진행 중 일감 개수(PM용) -->
+	<select id="countTaskIng" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '진행'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 진행 중 일감 개수(나머지용) -->
+	<select id="countTaskIng2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '진행'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 완료 일감 개수(PM용) -->
+	<select id="countTaskDone" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '완료'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 완료 일감 개수(나머지용) -->
+	<select id="countTaskDone2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '완료'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 승인 일감 개수(PM용) -->
+	<select id="countTaskApprove" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '승인'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 승인 일감 개수(나머지용) -->
+	<select id="countTaskApprove2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '승인'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 반려 일감 개수(PM용) -->
+	<select id="countTaskReject" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '반려'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId})
+	</select>
+	
+	<!-- 반려 일감 개수(나머지용) -->
+	<select id="countTaskReject2" parameterType="taskVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND TASK_STTS = '반려'
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 전월 대비 증가율(전체 일감, PM용) -->
+	<select id="allPercent" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId})) A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId})) B
+	</select>
+	
+	<!-- 전월 대비 증가율(전체 일감, 나머지용) -->
+	<select id="allPercent2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp})) A, ]]>
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp})) B
+	</select>
+	
+	<!-- 전월 대비 증가율(진행 일감, PM용) -->
+	<select id="ingPercent" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '진행') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '진행') B
+	</select>
+	
+	<!-- 전월 대비 증가율(진행 일감, 나머지용) -->
+	<select id="ingPercent2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp})  AND TASK_STTS = '진행') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '진행') B
+	</select>
+	
+	<!-- 전월 대비 증가율(완료 일감, PM용) -->
+	<select id="donePercent" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '완료') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '완료') B
+	</select>
+	
+	<!-- 전월 대비 증가율(완료 일감, 나머지용) -->
+	<select id="donePercent2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp})AND TASK_STTS = '완료') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '완료') B
+	</select>
+	
+	<!-- 전월 대비 증가율(승인 일감, PM용) -->
+	<select id="approvePercent" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '승인') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '승인') B
+	</select>
+	
+	<!-- 전월 대비 증가율(승인 일감, 나머지용) -->
+	<select id="approvePercent2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '승인') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '승인') B
+	</select>
+	
+	<!-- 전월 대비 증가율(반려 일감, PM용) -->
+	<select id="rejectPercent" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '반려') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId}) AND TASK_STTS = '반려') B
+	</select>
+	
+	<!-- 전월 대비 증가율(반려 일감, 나머지용) -->
+	<select id="rejectPercent2" parameterType="hashMap" resultType="hashMap">
+		SELECT A.COUNT1 count1, B.COUNT2 count2
+		FROM 
+		(SELECT COUNT(*) COUNT1 FROM TASK 
+		 <![CDATA[ WHERE SUBSTR(TASK_SDY, 4, 2) < SUBSTR(SYSDATE, 4, 2)
+		 AND SUBSTR(TASK_SDY, 4, 2) > SUBSTR(SYSDATE, 4, 2)-2 AND PROJ_ID = #{projId} ]]>
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '반려') A, 
+		(SELECT COUNT(*) COUNT2 FROM TASK
+		 WHERE SUBSTR(TASK_SDY, 4, 2) = SUBSTR(SYSDATE, 4, 2)
+		 AND PROJ_ID = #{projId}
+		 AND PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND PMEM_GRP = #{pmemGrp}) AND TASK_STTS = '반려') B
+	</select>
+	
+	<!-- 일감 관련 이슈 출력 -->
+	<select id="onetaskIssue" parameterType="string" resultType="issueVO">
+		SELECT ISSUE_NO, ISSUE_TYPE, ISSUE_TTL, ISSUE_STTS, PMEM_CD, TO_CHAR(ISSUE_DY, 'YYYY.MM.DD HH:MM') ISSUE_DY
+		FROM ISSUE
+		WHERE TASK_NO = #{taskNo}
+	</select>
+	
+	<!-- 일괄편집 모달에서 담당자 출력 -->
+	<select id="modalPmemCd" parameterType="hashMap" resultType="hashMap">
+		SELECT P.PROF_NM, A.MEM_NO, A.PMEM_CD
+		FROM PROFILE P, (SELECT PMEM_CD, MEM_NO
+						 FROM PROMEM
+						 WHERE PMEM_GRP = (SELECT PMEM_GRP
+						                   FROM PROMEM
+						                   WHERE PMEM_CD = (SELECT PMEM_CD
+						                                    FROM TASK
+						                                    WHERE TASK_NO = #{taskNo}))
+						 AND PROJ_ID = #{projId}) A
+		WHERE P.MEM_NO = A.MEM_NO
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 일괄편집 수정 -->
+	<update id="updateAll" parameterType="taskVO">
+		UPDATE TASK 
+		SET TASK_TTL = #{taskTtl}, TASK_SDY = #{taskSdy}, TASK_EDY = #{taskEdy},
+			TASK_PRIORITY = #{taskPriority}, TASK_STTS = #{taskStts}, TASK_PROGRESS = #{taskProgress}, PMEM_CD = #{pmemCd}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 프로젝트 멤버 코드 가져오기 -->
+	<select id="getPmemCd" parameterType="hashMap" resultType="int">
+		SELECT PMEM_CD
+		FROM PROMEM
+		WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 일감 메인페이지 카드별 검색 -->
+	<select id="cardSort" parameterType="hashMap" resultType="taskVO">
+		WITH U AS (
+			SELECT	  ROW_NUMBER() OVER (ORDER BY Z.TASK_NO DESC) RNUM
+					, Z.*
+			FROM (
+					SELECT T.TASK_NO, T.PROJ_ID, T.TASK_TTL, T.TASK_CN, TO_CHAR(TASK_SDY, 'YYYY.MM.DD') TASK_SDY, 
+						   TO_CHAR(TASK_EDY, 'YYYY.MM.DD') TASK_EDY, T.TASK_PRIORITY, 
+					       T.TASK_STTS, T.TASK_PROGRESS, T.TASK_PARENT, T.PMEM_CD, B.PROF_NM, B.MEM_NO, B.PMEM_GRP, B.PROF_PHOTO
+					FROM TASK T, (
+					                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO
+					                FROM PROMEM PM,(
+					                                SELECT PRO.PROF_NM, M.MEM_NO, PRO.PROF_PHOTO
+					                                FROM PROFILE PRO, MEMBER M
+					                                WHERE PRO.MEM_NO = M.MEM_NO
+					                                AND PRO.PROJ_ID = #{projId}
+					                                ) A
+					                WHERE PM.MEM_NO = A.MEM_NO
+					                AND PM.PROJ_ID = #{projId}
+					                ) B
+					WHERE T.PROJ_ID = #{projId}
+					AND T.PMEM_CD = B.PMEM_CD
+					<if test="grp != 1">
+						AND B.PMEM_GRP = #{pmemGrp}
+					</if>
+					<if test="stts != 1">
+						AND T.TASK_STTS = #{taskStts}
+					</if>
+					ORDER BY T.TASK_NO DESC
+			) Z
+		)
+		SELECT U.*
+		FROM U
+	</select>
+	
+	<!-- ///////////////////////////////////////////////////////////칸반/////////////////////////////////////////////////////////// -->
+	
+	<!-- 일감 상태 수정 -->
+	<update id="updateKanbanStts" parameterType="taskVO">
+		UPDATE TASK
+		SET TASK_STTS = #{taskStts}, TASK_PROGRESS = #{taskProgress}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 일감의 진척도 가져오기 -->
+	<select id="selectProgress" parameterType="string" resultType="int">
+		SELECT TASK_PROGRESS
+		FROM TASK
+		WHERE TASK_NO = #{taskNo}
+	</select>
+	
+	
+	<!-- ///////////////////////////////////////////////////////////칸반/////////////////////////////////////////////////////////// -->
+	
+	
+	
+	
+	<!-- ///////////////////////////////////////////////////////////간트/////////////////////////////////////////////////////////// -->
+	<!-- 바 이동 시 날짜 수정 -->
+	<update id="updateDateGantt" parameterType="taskVO">
+		UPDATE TASK
+		SET TASK_SDY = #{taskSdy}, TASK_EDY = #{taskEdy}, TASK_PROGRESS = #{taskProgress}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 수정창을 통한 수정 -->	
+	<update id="updateAllGantt" parameterType="taskVO">
+		UPDATE TASK
+		SET TASK_TTL = #{taskTtl}, TASK_PRIORITY = #{taskPriority}, TASK_PROGRESS = #{taskProgress}, TASK_STTS = #{taskStts}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- 상위일감 번호 삭제 -->
+	<update id="updateParent" parameterType="hashMap">
+		UPDATE TASK
+		SET TASK_PARENT = #{taskParent}
+		WHERE TASK_NO = #{taskNo}
+	</update>
+	
+	<!-- ///////////////////////////////////////////////////////////간트/////////////////////////////////////////////////////////// -->
+	
+	
+	
+	
+	<!-- ///////////////////////마이페이지 일감 조회//////////////////////// -->
+	
+	<!-- 모든 프로젝트 진행중인 일감조회 -->
+	<select id="mypageTaskList" parameterType="taskVO" resultType="taskVO">
+		SELECT A.task_no, A.proj_id, A.task_ttl, A.task_cn ,  TO_CHAR(A.TASK_SDY, 'YYYY.MM.DD') TASK_SDY,  TO_CHAR(A.task_edy, 'YYYY.MM.DD') task_edy
+			 , A.task_priority, A.task_stts, A.task_progress, A.task_parent , A.pmem_cd , B.MEM_NO ,B.PMEM_GRP,C.PROJ_TTL ,COUNT(*) OVER() AS CNT
+		FROM
+		    task A, promem B, PROJECT C
+		WHERE A.PMEM_CD = B.PMEM_CD
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = #{memNo}
+		AND A.TASK_EDY > SYSDATE
+		<choose>
+			<when test="projId!=0">
+				AND C.PROJ_ID = #{projId}
+			</when>
+		</choose>
+		ORDER BY A.task_priority ASC
+	</select>
+	
+	<!-- 오늘까지 일감조회  -->
+	<select id="todayTaskList" parameterType="taskVO" resultType="taskVO">
+		SELECT A.task_no, A.proj_id, A.task_ttl, A.task_cn ,  TO_CHAR(A.TASK_SDY, 'YYYY.MM.DD') TASK_SDY,  TO_CHAR(A.task_edy, 'YYYY.MM.DD') task_edy
+			 , A.task_priority, A.task_stts, A.task_progress, A.task_parent , A.pmem_cd , B.MEM_NO,B.PMEM_GRP ,C.PROJ_TTL ,COUNT(*) OVER() AS CNT
+		FROM
+		    task A, promem B, PROJECT C
+		WHERE A.PMEM_CD = B.PMEM_CD
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = #{memNo}
+		AND A.TASK_EDY LIKE SYSDATE
+		<choose>
+			<when test="projId!=0">
+				AND C.PROJ_ID = #{projId}
+			</when>
+		</choose>
+		ORDER BY A.task_priority ASC
+	</select>
+	
+	<!-- 지난 일감 조회 -->
+	<select id="endTaskList" parameterType="taskVO" resultType="taskVO">
+		SELECT A.task_no, A.proj_id, A.task_ttl, A.task_cn , TO_CHAR(A.TASK_SDY, 'YYYY.MM.DD')TASK_SDY,  TO_CHAR(A.task_edy, 'YYYY.MM.DD')task_edy, A.task_priority, A.task_stts
+	   , A.task_progress, A.task_parent , A.pmem_cd , B.MEM_NO ,B.PMEM_GRP,C.PROJ_TTL ,COUNT(*) OVER() AS CNT
+		FROM
+		    task A, promem B, PROJECT C
+		WHERE A.PMEM_CD = B.PMEM_CD
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = #{memNo}
+		AND SYSDATE > A.TASK_EDY + 1
+		<choose>
+			<when test="projId!=0">
+				AND C.PROJ_ID = #{projId}
+			</when>
+		</choose>
+		ORDER BY A.task_priority ASC
+	</select>
+
+	<!-- 주간 일감 조회 -->
+	<select id="weekTaskList" parameterType="String" resultType="taskVO">
+	SELECT A.task_no, A.proj_id, A.task_ttl, A.task_cn , TO_CHAR(A.TASK_SDY, 'YYYY.MM.DD')TASK_SDY,  TO_CHAR(A.task_edy, 'YYYY.MM.DD')task_edy, A.task_priority, A.task_stts
+	   , A.task_progress, A.task_parent , A.pmem_cd , B.MEM_NO,B.PMEM_GRP ,C.PROJ_TTL ,COUNT(*) OVER() AS CNT
+	FROM
+	    task A, promem B, PROJECT C
+	WHERE A.PMEM_CD = B.PMEM_CD
+	AND B.PROJ_ID = C.PROJ_ID
+	AND B.MEM_NO = #{memNo}
+	AND A.TASK_EDY LIKE SYSDATE+7
+	ORDER BY A.task_priority ASC
+	</select>
+	
+	<!-- 상위 하위 일감 검색 -->
+	<select id="updownSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		    T.TASK_NO
+		  , T.TASK_TTL
+		  , T.TASK_CN
+		FROM TASK T, PROMEM P
+		WHERE T.PROJ_ID = #{projId}
+		AND P.PMEM_GRP = #{pmemGrp}
+		AND T.PMEM_CD = P.PMEM_CD
+		AND T.TASK_TTL LIKE '%'||#{content}||'%'
+	</select>	
+	
+	<!-- PL 누군지 찾기 -->
+	<select id="selectPL" parameterType="hashMap" resultType="String">
+		select p.mem_no from promem p
+		where p.proj_id = #{projId}
+		and p.pmem_grp = #{pmemGrp}
+		and p.role_id = 'R02'
+	</select>
+	
+	
+	
+	
+	<!-- //////////////////////////////////////////////////////페이징용 쿼리////////////////////////////////////////////////////// -->
+	<!-- 일감 일반 리스트 페이징 -->
+	<select id="totalPages" parameterType="map" resultType="int">
+		SELECT COUNT(*)
+		FROM TASK T, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO, PRO.PROF_PHOTO
+		                                FROM PROFILE PRO, MEMBER M
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B
+		WHERE T.PROJ_ID = #{projId}
+		AND T.PMEM_CD = B.PMEM_CD
+		AND B.PMEM_GRP = #{pmemGrp}
+		ORDER BY T.TASK_NO DESC
+	</select>
+	
+	<!-- 일감 모두 리스트 페이징 -->
+	<select id="totalPagesAll" parameterType="int" resultType="int">
+		SELECT COUNT(*)
+		FROM TASK T, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO
+		                                FROM PROFILE PRO, MEMBER M
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B
+		WHERE T.PROJ_ID = #{projId}
+		AND T.PMEM_CD = B.PMEM_CD
+	</select>
+	
+</mapper>

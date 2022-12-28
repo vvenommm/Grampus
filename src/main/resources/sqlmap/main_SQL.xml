@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.MainMapper">
+<!-- 내가 맡았던 직책 -->
+	<select id="myRole" resultType="mainVO" parameterType="memberVO">
+		SELECT A.PM
+	    ,B.PL
+	    ,C.TA
+	    ,D.AA
+	    ,E.UA
+	    ,F.DA
+	FROM(SELECT COUNT(*) PM
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R01') A,
+	      (SELECT COUNT(*) PL
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R02') B,
+	         (SELECT COUNT(*) TA
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R03') C,
+	         (SELECT COUNT(*) AA
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R04') D,
+	         (SELECT COUNT(*) UA
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R05') E,
+	         (SELECT COUNT(*) DA
+	        FROM PROMEM
+	        WHERE MEM_NO =#{memNo}
+	        AND ROLE_ID = 'R06') F
+	</select>
+	
+	<!-- 내 전체 일감 중 완료/승인 된 일감 비율 도넛 차트로 -->
+	<select id="myTasks" parameterType="memberVO" resultType="taskVO">
+		select a.doneTask
+		     , b.allTask
+		from (select count(task_no) doneTask
+		from task
+		where pmem_cd in (select pmem_cd from promem where mem_no = #{memNo})
+		and (task_stts = '완료' or task_stts = '승인')) a,
+		(select count(task_no) allTask
+		from task
+		where pmem_cd in (select pmem_cd from promem where mem_no = #{memNo})) b
+	</select>
+	
+	<!-- 프로젝트 활동 -->
+	<select id="myProj" resultType="mainVO" parameterType="memberVO">
+		SELECT A.INGPROJECT
+	    ,B.ENDPROJECT
+	FROM(SELECT COUNT(PROJ_ID) INGPROJECT
+	        FROM PROJECT
+	        WHERE PROJ_ID IN (SELECT PROJ_ID FROM PROMEM WHERE MEM_NO = #{memNo})
+	        AND <![CDATA[PROJ_EDY > SYSDATE ]]>
+	        AND PROJ_ID IN(SELECT PROJ_ID FROM PROMEM WHERE PMEM_RSVP ='J'OR PMEM_RSVP ='Y' )) A,
+	        (SELECT COUNT(PROJ_ID) ENDPROJECT
+	        FROM PROJECT
+	        WHERE PROJ_ID IN (SELECT PROJ_ID FROM PROMEM WHERE MEM_NO = #{memNo})
+	        AND <![CDATA[PROJ_EDY < SYSDATE ]]>
+	        AND PROJ_ID IN(SELECT PROJ_ID FROM PROMEM WHERE PMEM_RSVP ='J'OR PMEM_RSVP ='Y' )) B
+	</select>
+	
+	
+	<!-- 히트맵 히스토리 수 -->
+	<select id="myHisList" resultType="mainVO" parameterType="memberVO">
+		SELECT NVL(A.HISCNT, 0) AS HISCNT, SUBSTR(B.MYHISDATE, 7) AS MYHISDATE, SUBSTR(B.MYHISDATE,5,2) AS HISDATEMY
+		FROM (SELECT TO_CHAR(HIS_DATE, 'YYYYMMDD') AS MYHISDATE
+		        , NVL(COUNT(*), 0) AS HISCNT
+		        FROM HISTORY
+		        WHERE PMEM_CD IN (SELECT PMEM_CD FROM PROMEM WHERE MEM_NO = #{memNo})
+		        GROUP BY TO_CHAR(HIS_DATE, 'YYYYMMDD') 
+		        ) A,
+		        (SELECT TO_CHAR(FIRST_DAY + LEVEL -1, 'YYYYMMDD') MYHISDATE
+		            FROM (SELECT TRUNC(SYSDATE, 'YY')
+		            FIRST_DAY FROM DUAL)
+		            CONNECT BY <![CDATA[FIRST_DAY + LEVEL -1 <= TRUNC(LAST_DAY('20221231'))]]>
+		        ) B
+		WHERE A.MYHISDATE(+) = B.MYHISDATE
+		ORDER BY B.MYHISDATE
+	</select>
+	
+	
+	
+	<!-- 프로젝트 리스트 -->
+	<select id="projList" resultType="projectVO" parameterType="memberVO">
+		SELECT A.PROJ_ID
+		     , A.PROJ_STTS
+		     , A.PROJ_TTL
+		     , A.PROJ_CN
+		     , A.PROJ_SDY
+		     , A.PROJ_EDY
+		FROM PROJECT A, PROFILE B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = C.MEM_NO
+		AND B.MEM_NO = #{memNo}
+		AND (C.PMEM_RSVP ='J'OR C.PMEM_RSVP ='Y')
+		AND C.PMEM_ODY IS NULL
+		GROUP BY A.PROJ_ID, A.PAY_NO, A.PROJ_STTS, A.PROJ_TTL, A.PROJ_CN, 
+				 A.PROJ_BGT, A.PROJ_SDY, A.PROJ_EDY, A.PROJ_LIMIT, A.PROJ_PARTY, 
+				 A.PLAN_TTL, A.PROJ_PHOTO, B.MEM_NO, B.PROF_NM, B.PROF_PHOTO
+		ORDER BY A.PROJ_ID
+	</select>
+	
+	
+	<!-- 일감 리스트 -->
+	<select id="taskList" resultType="taskVO" parameterType="memberVO">
+		 SELECT DISTINCT T.TASK_NO
+            ,T.TASK_TTL
+            ,T.TASK_CN
+            ,TO_CHAR(T.TASK_SDY, 'YYYY.MM.DD') TASK_SDY
+            ,TO_CHAR(T.TASK_EDY, 'YYYY.MM.DD') TASK_EDY
+            ,T.TASK_PRIORITY
+            ,T.TASK_STTS
+        FROM TASK T, PROMEM PR, MEMBER M, PROJECT PJ
+        WHERE T.PMEM_CD = PR.PMEM_CD
+        AND PR.MEM_NO = M.MEM_NO
+        AND M.MEM_NO = #{memNo}
+	</select>
+	
+	<!-- 직책 리스트 -->
+	<select id="roleList" resultType="roleVO" parameterType="memberVO">
+		SELECT R.ROLE_NM
+			, PROJ_TTL
+        FROM ROLE R, PROMEM PR, MEMBER M, PROJECT PJ
+        WHERE R.ROLE_ID = PR.ROLE_ID
+        AND PR.MEM_NO = M.MEM_NO
+        AND PR.PROJ_ID = PJ.PROJ_ID
+        AND M.MEM_NO = #{memNo}
+	</select>
+</mapper>

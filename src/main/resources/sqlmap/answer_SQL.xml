@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.AnswerMapper">
+	<!-- 이슈 댓글 출력 -->
+	<select id="issueAnswer" parameterType="hashMap" resultType="answerVO">
+		SELECT A.ANS_NO, A.ISSUE_NO, A.PMEM_CD, A.ANS_CN, A.ANS_DY, B.PROF_NM, B.PROF_PHOTO
+		FROM ANSWER A, (SELECT PRO.PROF_NM, PRO.MEM_NO, PRO.PROJ_ID, PRO.PROF_PHOTO, PM.PMEM_CD
+		                FROM PROFILE PRO, PROMEM PM
+		                WHERE PRO.MEM_NO = PM.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                AND PRO.PROJ_ID = #{projId}
+		                AND PRO.MEM_NO IN (SELECT MEM_NO FROM PROMEM
+		                                   WHERE PMEM_CD IN (SELECT PMEM_CD FROM ANSWER
+		                                                     WHERE ISSUE_NO = #{issueNo})
+		                                   AND PROJ_ID = #{projId})) B
+		WHERE ISSUE_NO = #{issueNo}
+		AND A.PMEM_CD = B.PMEM_CD
+		ORDER BY A.ANS_DY DESC
+	</select>
+	
+	<!-- 이슈 댓글 등록 -->
+	<insert id="newAnswer" parameterType="hashMap">
+		INSERT INTO ANSWER(ANS_NO, ISSUE_NO, PMEM_CD, ANS_CN, ANS_DY)
+		VALUES(ANS_NO.NEXTVAL, #{issueNo}, (SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp}), #{ansCn}, SYSDATE)
+		<selectKey resultType="int" keyProperty="ansNo" order="AFTER">
+        	SELECT NVL(MAX(ANS_NO), 0)+1 FROM ANSWER
+    	</selectKey>
+	</insert>
+	
+	<!-- 이슈 댓글 삭제 -->
+	<delete id="deleteAnswer" parameterType="int">
+		DELETE FROM ANSWER
+		WHERE ANS_NO = #{ansNo}
+	</delete>
+	
+	<!-- 이슈 댓글 수정 -->
+	<update id="updateAnswer" parameterType="answerVO">
+		UPDATE ANSWER
+		SET ANS_CN = #{ansCn}, ANS_DY = SYSDATE
+		WHERE ANS_NO = #{ansNo}
+	</update>
+	
+		
+	<!-- 이슈글 삭제시 댓글도 함께 삭제 -->
+	<delete id="autoDelete" parameterType="string">
+		DELETE FROM ANSWER
+		WHERE ISSUE_NO = #{issueNo}
+	</delete>
+</mapper>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.ResumeMapper">
+
+<select id="resumeSelect" parameterType="String" resultType="resumeVO">
+	SELECT MEM_NO, RSM_JOB, RSM_CAREER, RSM_MDY
+	FROM RESUME 
+	WHERE MEM_NO = #{memNo}
+</select>
+
+<insert id="resumeInsert" parameterType="resumeVO">
+	INSERT INTO RESUME(MEM_NO, RSM_JOB, RSM_CAREER)
+	VALUES(#{memNo},#{rsmJob},#{rsmCareer})
+</insert>
+
+<update id="resuemUpdate" parameterType="resumeVO">
+	UPDATE RESUME
+	SET RSM_JOB = #{rsmJob}, RSM_CAREER =#{rsmCareer}, RSM_MDY = SYSDATE
+	WHERE MEM_NO = #{memNo}
+</update>
+
+<select id="doYouHaveResume" parameterType="String" resultType="int">
+	SELECT COUNT(*)
+	FROM RESUME
+	WHERE MEM_NO = #{memNo}
+</select>
+
+</mapper>

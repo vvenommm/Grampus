@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.mapper.ProMemMapper">
+	<!-- 프로젝트 생성시 관리자 등록 -->
+	<insert id="projAdmin" parameterType="hashMap">
+		<selectKey resultType="int" keyProperty="pmemCd" order="BEFORE">
+        	SELECT NVL(MAX(PMEM_CD), 0)+1 FROM PROMEM
+    	</selectKey>
+		insert into promem(pmem_cd, proj_id, mem_no, role_id, pmem_idy, pmem_ody, pmem_rsvp, pmem_lv, pmem_grp) 
+		values(#{pmemCd},#{projId},(select mem_no from member where mem_id = #{memId}),'R01',sysdate,null,'Y','고급','전체')
+	</insert>
+	
+	<!-- 프로젝트 멤버한테 권한 주기/뺏기 -->
+	<update id="updateRole" parameterType="promemVO">
+		update promem
+		set role_id = #{roleId}
+		where pmem_cd = (select pmem_cd
+						from promem
+						where pmem_ody is null
+						and proj_id = #{projId}
+						and mem_no = #{memNo}
+						and pmem_grp = #{pmemGrp})
+	</update>
+	
+		
+	<!-- 내가 pm인지 아닌지 구분하려고 -->
+	<select id="iAmPm" parameterType="proMemVO" resultType="proMemVO">
+		SELECT COUNT(*) PM, MEM_NO
+		FROM PROMEM PM
+		WHERE PROJ_ID = #{projId}
+		AND MEM_NO = #{memNo}
+		AND ROLE_ID = 'R01'
+		GROUP BY MEM_NO
+	</select>
+	
+	<!-- pmem 구하기 저장 -->
+	<select id="pmem" parameterType="proMemVO" resultType="proMemVO">
+		select pmem_cd
+		from promem
+		where proj_id = #{projId}
+		and mem_no = #{memNo}
+		and pmem_grp = #{pmemGrp}
+	</select>
+	
+	<!-- 초대장 보낼 때 이미 참여 중인지 확인하기 -->
+	<select id="isAlreadyMem" parameterType="proMemVO" resultType="int">
+		SELECT count(*)
+		FROM PROMEM
+		WHERE MEM_NO = (SELECT MEM_NO FROM MEMBER WHERE MEM_ID = #{memId})
+		AND PROJ_ID = #{projId}
+		AND PMEM_RSVP = 'Y'
+	</select>
+	
+	<!-- 초대장 받은 후에 회원 등록하기 -->
+	<insert id="joinProjfromInvi" parameterType="proMemVO">
+		<selectKey resultType="int" keyProperty="pmemCd" order="BEFORE">
+        	SELECT NVL(MAX(PMEM_CD), 0)+1 FROM PROMEM
+    	</selectKey>
+		INSERT INTO PROMEM (
+		    PMEM_CD
+		   ,PROJ_ID
+		   ,MEM_NO
+		   ,ROLE_ID
+		   ,PMEM_IDY
+		   ,PMEM_ODY
+		   ,PMEM_RSVP
+		   ,PMEM_LV
+		   ,PMEM_GRP
+		) VALUES (
+		    #{pmemCd}
+		   ,#{projId}
+		   ,#{memNo}
+		   ,'R07'
+		   ,SYSDATE
+		   ,NULL
+		   ,'W'
+		   ,(SELECT SUBSTR(RSM_CAREER, 0, 2) FROM RESUME WHERE MEM_NO = #{memNo})
+		   ,#{pmemGrp}
+		)
+	</insert>
+	
+	<!-- 그룹 추가하면서 pm을 해당 그룹에 배정하는 insert -->
+	<insert id="newGrp" parameterType="proMemVO">
+		<selectKey resultType="int" keyProperty="pmemCd" order="BEFORE">
+        	SELECT NVL(MAX(PMEM_CD), 0)+1 FROM PROMEM
+    	</selectKey>
+		INSERT INTO PROMEM (
+		    PMEM_CD
+		   ,PROJ_ID
+		   ,MEM_NO
+		   ,ROLE_ID
+		   ,PMEM_IDY
+		   ,PMEM_ODY
+		   ,PMEM_RSVP
+		   ,PMEM_LV
+		   ,PMEM_GRP
+		) VALUES (
+		    #{pmemCd}
+		   ,#{projId}
+		   ,#{memNo}
+		   ,'R07'
+		   ,(SELECT PMEM_IDY FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = '전체')
+		   ,NULL
+		   ,(SELECT PMEM_RSVP FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = '전체')
+		   ,'초급'
+		   ,#{pmemGrp}
+		)
+	
+	</insert>
+	
+	<!-- 그룹 추가해서 pm insert 하고나서 바로 쓸 select -->
+	<select id="newGrpSelect" parameterType="proMemVO" resultType="proMemVO">
+		SELECT A.PROF_NM, A.PROF_PHOTO, B.PROJ_ID,  TO_CHAR(B.PMEM_IDY, 'YYYY-MM-DD') PMEM_IDY2, 
+				TO_CHAR(B.PMEM_ODY, 'YYYY-MM-DD') PMEM_ODY2, B.MEM_NO, B.ROLE_NM, B.PMEM_GRP
+		FROM PROFILE A, (
+	                        SELECT P.PROJ_ID, PM.MEM_NO, PM.PMEM_IDY, PM.PMEM_ODY, R.ROLE_NM, PM.PMEM_GRP
+	                        FROM PROJECT P, PROMEM PM, ROLE R
+	                        WHERE PM.PROJ_ID = P.PROJ_ID
+	                        AND PM.ROLE_ID = R.ROLE_ID
+	                        AND PM.PMEM_ODY IS NULL
+	                        AND P.PROJ_ID = #{projId}
+	                        AND PM.PMEM_GRP = #{pmemGrp}
+	                    ) B
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.MEM_NO = B.MEM_NO
+	</select>
+	
+	<!-- 그룹을 추가하면서 '전체'에서 다 미정으로 바꾸기 -->
+	<update id="grpToUngrp" parameterType="int">
+		UPDATE PROMEM
+		SET   PMEM_GRP = '미정'
+			, ROLE_ID = 'R07'
+		WHERE ROLE_ID != 'R01'
+		AND PMEM_GRP = '전체'
+		AND PROJ_ID = #{projId}
+	</update>
+	
+	<!-- '미정'에서 그룹 배정하기, 그룹명 변경 시 바꾸기 -->
+	<update id="ungrpToGrp" parameterType="proMemVO">
+		UPDATE PROMEM
+		SET PMEM_GRP = #{newPmemGrp}
+		WHERE PROJ_ID = #{projId}
+		<if test="memNo != ''">
+		AND MEM_NO = #{memNo}
+		</if>
+		AND PMEM_GRP = #{pmemGrp}
+	</update>
+	
+	<!-- 미정인 사람 잇는지 count -->
+	<select id="isThereUngrp" parameterType="int" resultType="int">
+		SELECT COUNT(*)
+		FROM PROMEM
+		WHERE PMEM_GRP = '미정'
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 그룹 생성 후 참여 중인 멤버 그룹 배정하기 -->
+	<insert id="newMemIntoGrp" parameterType="proMemVO">
+		<selectKey resultType="int" keyProperty="pmemCd" order="BEFORE">
+        	SELECT NVL(MAX(PMEM_CD), 0)+1 FROM PROMEM
+    	</selectKey>
+		INSERT INTO PROMEM (
+		    PMEM_CD
+		   ,PROJ_ID
+		   ,MEM_NO
+		   ,ROLE_ID
+		   ,PMEM_IDY
+		   ,PMEM_ODY
+		   ,PMEM_RSVP
+		   ,PMEM_LV
+		   ,PMEM_GRP
+		) VALUES (
+		    #{pmemCd}
+		   ,#{projId}
+		   ,(SELECT MEM_NO FROM PROFILE WHERE PROF_NM = #{profNm} AND PROJ_ID = #{projId})
+		   ,'R07'
+		   ,(SELECT DISTINCT PMEM_IDY FROM PROMEM WHERE PMEM_CD in (SELECT PMEM_CD 
+		   															FROM PROMEM 
+		   															WHERE PROJ_ID = #{projId} 
+		   															AND MEM_NO = (
+		   																			SELECT MEM_NO 
+		   																			FROM PROFILE 
+		   																			WHERE PROF_NM = #{profNm} 
+		   																			AND PROJ_ID = #{projId}
+		   																		  )
+		   															)
+		   	)
+		   ,NULL
+		   ,(SELECT DISTINCT PMEM_RSVP FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = (
+		   																			SELECT MEM_NO 
+		   																			FROM PROFILE 
+		   																			WHERE PROF_NM = #{profNm} 
+		   																			AND PROJ_ID = #{projId}
+		   																		  )
+		   	)
+		   ,'초급'
+		   ,#{pmemGrp}
+		)
+	</insert>
+	
+	<!-- 그룹에 넣었으면 그 값 다시 select -->
+	<select id="afterNewMem" parameterType="proMemVO" resultType="proMemVO">
+		SELECT A.PROF_NM, A.PROF_PHOTO, B.PROJ_ID,  TO_CHAR(B.PMEM_IDY, 'YYYY-MM-DD') PMEM_IDY2, 
+				TO_CHAR(B.PMEM_ODY, 'YYYY-MM-DD') PMEM_ODY2, B.MEM_NO, B.ROLE_NM, B.PMEM_GRP
+		FROM PROFILE A, (
+		                    SELECT P.PROJ_ID, PM.MEM_NO, PM.PMEM_IDY, PM.PMEM_ODY, R.ROLE_NM, PM.PMEM_GRP
+		                    FROM PROJECT P, PROMEM PM, ROLE R
+		                    WHERE PM.PROJ_ID = P.PROJ_ID
+		                    AND PM.ROLE_ID = R.ROLE_ID
+		                    AND PM.PMEM_ODY IS NULL
+		                ) B
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.MEM_NO = B.MEM_NO
+		AND B.PROJ_ID = #{projId}
+		AND B.PMEM_GRP = #{pmemGrp}
+		AND A.PROF_NM = #{profNm}
+	</select>
+	
+	<!-- 그룹에서 내보내기 -->
+	<update id="getOutFromGrp" parameterType="proMemVO">
+		UPDATE PROMEM
+		    SET
+		         PMEM_ODY = SYSDATE
+		WHERE	 PROJ_ID = #{projId}
+		    AND  MEM_NO = #{memNo}
+		    AND  PMEM_GRP = #{pmemGrp}
+
+	</update>
+	
+	<!-- 프로젝트 관리자 구하기 -->
+	<select id="getProjAdmin" parameterType="int" resultType="String">
+		select mem_no from promem where proj_id = #{projId} and role_id = 'R01'
+	</select>
+		
+	<!-- 프로젝트 그룹 맴버 검색 -->
+	<select id="projGrpSearch" parameterType="hashMap" resultType="hashMap">
+		SELECT
+		    '@'||m.mem_nm mem_nm
+		  , m.mem_id
+		  , m.mem_no
+		  , m.mem_photo
+		FROM
+		    member m
+		  , promem p
+		WHERE
+		        p.proj_id = #{projId}
+		    AND p.pmem_grp = #{pmemGrp}
+		    AND m.mem_no = p.mem_no
+	</select>
+	
+	<insert id="inviJoining" parameterType="proMemVO">
+		<selectKey resultType="int" keyProperty="pmemCd" order="BEFORE">
+        	SELECT NVL(MAX(PMEM_CD), 0)+1 FROM PROMEM
+    	</selectKey>
+		INSERT INTO promem (
+		    PMEM_CD
+		   ,PROJ_ID
+		   ,MEM_NO
+		   ,ROLE_ID
+		   ,PMEM_IDY
+		   ,PMEM_RSVP
+		   ,PMEM_LV
+		   ,PMEM_GRP
+		) VALUES (
+		    #{pmemCd}
+		   ,#{projId}
+		   ,#{memNo}
+		   ,'R07'
+		   ,SYSDATE
+		   ,'Y'
+		   ,'중급'
+		   ,#{pmemGrp}
+		)
+	</insert>
+</mapper>

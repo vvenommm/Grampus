@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.QNAMapper">
+	<!-- QNA 조회 -->
+	<select id="qnaList" parameterType="hashMap" resultType="qnaVO">
+		SELECT ROWNUM 
+			, QNA_NO
+			, MEM_NO
+			, QNA_TTL
+			, <![CDATA[REGEXP_REPLACE(REPLACE(QNA_CN, '&'||'lt;','<' ),'&'||'gt;','>') AS QNA_CN ]]>
+			, QNA_DY
+			, QNA_REPLY
+			, QNA_PW
+			, QNA_NIM
+			, COUNT(*) OVER() AS CNT
+		FROM QNA
+		WHERE <![CDATA[ rownum<=#{listcnt} ]]>
+		<if test="scon != ''">
+		AND QNA_TTL LIKE '%'||#{scon}||'%'
+		AND QNA_PW IS NULL
+		</if>
+		ORDER BY QNA_NO DESC
+	</select>
+	
+	<!-- QNA 상세보기 -->
+	<select id="qnaDetail" parameterType="String" resultType="qnaVO">
+		SELECT QNA_NO
+			, MEM_NO
+			, QNA_TTL
+			, <![CDATA[REGEXP_REPLACE(REPLACE(QNA_CN, '&'||'lt;','<' ),'&'||'gt;','>') AS QNA_CN ]]>
+			, QNA_DY
+			, QNA_REPLY
+			, QNA_PW
+			, QNA_NIM
+			, COUNT(*) OVER() AS CNT
+		FROM QNA
+		WHERE QNA_NO = #{qnaNO}
+	</select>
+	
+	<!-- QNA 삽입 -->
+	<insert id="qnaInsert" parameterType="qnaVO">
+		<selectKey order="BEFORE" resultType="String" keyProperty="qnaNo">
+			SELECT NVL(MAX(QNA_NO),0)+1 FROM QNA
+		</selectKey>
+		
+		INSERT INTO QNA(
+			QNA_NO
+			, MEM_NO
+			, QNA_TTL
+			, QNA_DY
+			, QNA_CN
+			, QNA_PW
+			, QNA_NIM
+			, QNA_REPLY
+		)
+		VALUES(
+			#{qnaNo}, #{memNo}, #{qnaTtl}, SYSDATE, #{qnaCn}, #{qnaPw}, #{qnaNim}, NULL
+		)
+	</insert>
+	
+	<!-- QNA 수정 -->
+	<update id="qnaUpdate" parameterType="qnaVO">
+		UPDATE QNA
+		SET MEM_NO = #{memNo}, QNA_CN = #{qnaCn}, QNA_DY = SYSDATE
+		WHERE QNA_NO = #{qnaNo}
+	</update>
+	
+	<!-- QNA 삭제 -->
+	<delete id="qnaDelete" parameterType="String">
+		DELETE FROM QNA WHERE QNA_NO = #{qnaNo}
+    </delete>
+    
+    <!-- QNA 댓글 등록 & 수정-->
+    <update id="qnaReply" parameterType="qnaVO">
+    	UPDATE QNA
+		SET QNA_REPLY=#{qnaReply}
+		WHERE QNA_NO = #{qnaNo}
+    </update>
+    
+    <!-- QNA 삭제 -->
+	<update id="qnaReplyDelete" parameterType="qnaVO">
+		UPDATE QNA
+		SET QNA_REPLY = NULL
+		WHERE QNA_NO = #{qnaNo}
+    </update>
+	
+</mapper>

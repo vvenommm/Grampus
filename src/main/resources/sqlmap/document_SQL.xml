@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.DocumentMapper">
+
+	<!--1. 문서 리스트 -->
+	<select id="docList" parameterType="map" resultType="map">
+		SELECT
+		    d.doc_no no
+		   ,d.proj_id id
+		   ,d.doc_type type
+		   ,d.doc_ttl ttl
+		   ,d.doc_cn cn
+		   ,to_char(d.doc_dy, 'yyyy.mm.dd') dy1
+		   ,to_char(d.doc_dy, 'yyyy.mm.dd HH:MM') dy2
+		   ,pm.pmem_cd cd
+	       ,pf.prof_nm nm
+		   ,pm.pmem_grp grp
+		FROM
+		    document d, promem pm, profile pf
+		where d.pmem_cd = pm.pmem_cd
+		and pm.mem_no = pf.mem_no
+		and d.proj_id = pf.proj_id
+		and d.proj_id = #{projId}
+		and Pm.Pmem_Grp = #{grp}
+		order by 1 desc, 6 desc
+	</select>
+	
+	<!-- 2. 문서 상세 조회 -->
+	<select id="docDetail" parameterType="map" resultType="map">
+		select  d.DOC_NO no
+			  , d.PROJ_ID id
+			  , d.DOC_TYPE type
+			  , d.DOC_TTL ttl
+			  , d.DOC_CN  cn
+			  , to_char(d.DOC_DY, 'yyyy.mm.dd hh:mm') dy
+			  , p.PMEM_CD pmemCd
+			  , pf.prof_nm nm
+			  , r.role_nm rolenm
+		from document d, promem p, profile pf, role r
+		where d.pmem_cd = p.pmem_cd
+        and p.mem_no = pf.mem_no
+        and d.proj_id = pf.proj_id
+        and p.role_id = r.role_id
+        and d.pmem_cd = #{pmemCd}
+        and doc_no = #{docNo}
+	</select>
+	
+	<!-- 3. 문서 등록 -->
+	<insert id="docInsert" parameterType="map">
+		<selectKey resultType="int" keyProperty="docNo" order="BEFORE">
+        	SELECT NVL(MAX(DOC_NO), 0)+1 FROM DOCUMENT
+    	</selectKey>
+    	INSERT INTO document (DOC_NO, PROJ_ID, DOC_TYPE, DOC_TTL, DOC_CN, DOC_DY, PMEM_CD)
+    	VALUES (#{docNo}, #{projId}, #{docType}, #{docTtl}, #{docCn}, SYSDATE, #{pmemCd})
+	</insert>
+	
+	<!-- 4. 문서 등록 시 필요한 pmem_cd 가져오기 -->
+	<select id="getPmem" parameterType="map" resultType="int">
+		select pmem_cd
+		from promem
+		where proj_id = #{projId}
+		and pmem_grp = #{grp}
+		and mem_no = #{memNo}
+	</select>
+	
+	<!-- 5. 문서 수정 -->
+	<update id="docEdit" parameterType="docVO">
+		UPDATE document
+	    SET
+	        DOC_TYPE = #{docType}
+	      , DOC_TTL = #{docTtl}
+	      , DOC_CN = #{docCn}
+	WHERE
+	    	  doc_no = #{docNo}
+	    AND   proj_id = #{projId}
+	    AND   pmem_cd = #{pmemCd}
+	</update>
+	
+	<!-- 6. 문서 삭제 -->
+	<delete id="docDel" parameterType="docVO">
+		delete from document
+		where doc_no = #{docNo}
+	</delete>
+	
+	<!-- 문서 양식별 검색 -->
+	<select id="selectType" parameterType="hashMap" resultType="hashMap">
+		SELECT D.DOC_NO, D.PROJ_ID, D.DOC_TYPE, D.DOC_TTL, D.DOC_CN, TO_CHAR(D.DOC_DY, 'yyyy.mm.dd') DOC_DY, PM.PMEM_CD, 
+			   PF.PROF_NM, PM.PMEM_GRP 
+		FROM DOCUMENT D, PROMEM PM, PROFILE PF
+		WHERE D.PMEM_CD = PM.PMEM_CD
+		AND PM.MEM_NO = PF.MEM_NO
+		AND D.PROJ_ID = PF.PROJ_ID
+		AND D.PROJ_ID = #{projId}
+		AND PM.PMEM_GRP = #{pmemGrp}
+		AND D.DOC_TYPE = #{docType}
+		ORDER BY 1 DESC, 6 DESC
+	</select>
+	
+</mapper>

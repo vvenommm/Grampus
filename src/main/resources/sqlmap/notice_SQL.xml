@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.NoticeMapper">
+	<!-- 공지사항 조회 -->
+	<select id="noticeList" parameterType="Map" resultType="noticeVO">
+        SELECT N.NTC_NO, N.PMEM_CD, N.NTC_TTL, N.NTC_CN, N.NTC_DY, N.NTC_INQ, R.ROLE_NM, COUNT(*) OVER() AS CNT
+		FROM NOTICE N, PROMEM P, PROJECT PJ , ROLE R
+		WHERE <![CDATA[ rownum<=#{listcnt} ]]>  
+		AND N.NTC_CN LIKE '%'||#{scon}||'%'
+		AND N.PMEM_CD = P.PMEM_CD
+		AND P.PROJ_ID = PJ.PROJ_ID
+		AND P.ROLE_ID = R.ROLE_ID
+		AND P.PROJ_ID = #{projId}
+		AND P.PMEM_GRP = #{pmemGrp}
+		ORDER BY N.NTC_DY DESC
+	</select>
+	
+	<!-- 공지사항 상세조회 -->
+	<select id="noticeDetail" parameterType="noticeVO" resultType="noticeVO">
+		SELECT N.NTC_NO, N.PMEM_CD, N.NTC_TTL, N.NTC_CN, N.NTC_DY, N.NTC_INQ, PJ.PROJ_ID, COUNT(*) OVER() AS CNT
+		FROM NOTICE N, PROMEM P, PROJECT PJ 
+		WHERE <![CDATA[ rownum<=#{listcnt} ]]>  
+		AND N.NTC_CN LIKE '%'||#{scon}||'%'
+		AND N.PMEM_CD = P.PMEM_CD
+		AND P.PROJ_ID = PJ.PROJ_ID
+		AND P.PROJ_ID = #{projId}
+		AND P.PMEM_GRP = #{pmemGrp}
+		ORDER BY N.NTC_NO DESC
+	</select>
+	
+	<!-- 공지사항 조회수 -->
+	<update id="noticeHit" parameterType="String">
+		UPDATE NOTICE
+		SET NTC_INQ = NTC_INQ + 1
+		WHERE NTC_NO = #{ntcNo}
+	</update>
+	
+	<!-- 공지사항 등록 -->
+	<insert id="noticeInsert"  parameterType="hashMap">
+		INSERT INTO NOTICE(NTC_NO, PMEM_CD, NTC_TTL, NTC_CN, NTC_DY,NTC_INQ)
+		VALUES(NOTICE_SEQ.NEXTVAL, #{pmemCd}, #{ntcTtl}, #{ntcCn}, SYSDATE, 0)
+	</insert>
+	
+	<!-- 공지사항 수정 -->
+	<update id="noticeUpdate" parameterType="hashMap">
+		UPDATE NOTICE 
+		SET NTC_TTL = #{ntcTtl}, NTC_CN = #{ntcCn}, NTC_DY = SYSDATE
+		WHERE NTC_NO = #{ntcNo}
+	</update>
+	
+	<!-- 공지사항 삭제 -->
+	<delete id="noticeDelete" parameterType="int">
+		DELETE FROM NOTICE WHERE NTC_NO = #{ntcNo}
+	</delete>
+	
+	<!-- PMEMCD 가져오기 -->
+    <select id="getPmemCd" parameterType="Map" resultType="hashMap">
+    	SELECT PMEM_CD FROM PROMEM
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_GRP = #{pmemGrp}
+		AND MEM_NO = #{memNo}
+    </select>
+	
+	<!-- 같은 그룹 내 사람들 불러오기 -->
+	<select id="getProjGrp" parameterType="hashMap" resultType="hashMap">
+		select mem_no from promem where proj_id = #{projId} and pmem_grp = #{pmemGrp}
+	</select>
+</mapper>

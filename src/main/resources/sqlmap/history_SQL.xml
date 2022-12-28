@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.HistoryMapper">
+	
+	<!-- //////////////////////////////////////일감////////////////////////////////////// -->
+		
+		<!-- 일감 등록 할 때 -->
+		<insert id="taskIn" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,(select pmem_cd from promem where proj_id = #{projId} AND MEM_NO = #{memNo}and pmem_grp = #{pmemGrp})
+			   ,'일감'
+			   ,sysdate
+			   ,'등록'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+
+		<!-- 일감 수정 할 때 -->
+		<insert id="taskUp" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,(select pmem_cd from promem where proj_id = #{projId} AND MEM_NO = #{memNo}and pmem_grp = #{pmemGrp})
+			   ,'일감'
+			   ,sysdate
+			   ,'수정'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+
+		<!-- 일감 삭제 할 때 -->
+		<insert id="taskDel" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			) VALUES (
+				#{hisNo}
+			   ,(select pmem_cd from promem where proj_id = #{projId} AND MEM_NO = #{memNo}and pmem_grp = #{pmemGrp})
+			   ,'일감'
+			   ,sysdate
+			   ,'삭제'
+			   ,#{hisKey}
+			)
+		</insert>
+
+
+	<!-- //////////////////////////////////////이슈////////////////////////////////////// -->
+		<!-- 이슈 등록 할 때 -->
+		<insert id="issueIn" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'이슈'
+			   ,sysdate
+			   ,'등록'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+
+		<!-- 이슈 수정 할 때 -->
+		<insert id="issueUp" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'이슈'
+			   ,sysdate
+			   ,'수정'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 이슈 삭제 할 때 -->
+		<insert id="issueDel" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'이슈'
+			   ,sysdate
+			   ,'삭제'
+			   ,#{hisKey}
+			)
+		</insert>
+
+
+	<!-- //////////////////////////////////////이슈 댓글////////////////////////////////////// -->
+		<!-- 이슈 댓글 등록 할 때 -->
+		<insert id="answerIn" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,(SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp})
+			   ,'이슈 댓글'
+			   ,sysdate
+			   ,'등록'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+
+		<!-- 이슈 댓글 수정 할 때 -->
+		<insert id="answerUp" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,(SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp})
+			   ,'이슈 댓글'
+			   ,sysdate
+			   ,'수정'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 이슈 댓글 삭제 할 때 -->
+		<insert id="answerDel" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			) VALUES (
+				#{hisNo}
+			   ,(SELECT PMEM_CD FROM PROMEM WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo} AND PMEM_GRP = #{pmemGrp})
+			   ,'이슈 댓글'
+			   ,sysdate
+			   ,'삭제'
+			   ,#{hisKey}
+			)
+		</insert>
+		
+	<!-- //////////////////////////////////////게시글////////////////////////////////////// -->
+		<!-- 게시글 등록 할 때 -->
+		<insert id="boardIn" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시글'
+			   ,sysdate
+			   ,'등록'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 게시글 수정 할 때 -->
+		<insert id="boardUp" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시글'
+			   ,sysdate
+			   ,'수정'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 게시글 삭제 할 때 -->
+		<insert id="boardDel" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시글'
+			   ,sysdate
+			   ,'삭제'
+			   ,#{hisKey}
+			)
+		</insert>
+		
+		
+	<!-- //////////////////////////////////////댓글////////////////////////////////////// -->
+		<!-- 댓글 등록 할 때 -->
+		<insert id="replyIn" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시판 댓글'
+			   ,sysdate
+			   ,'등록'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 댓글 수정 할 때 -->
+		<insert id="replyUp" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			   ,his_cn
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시판 댓글'
+			   ,sysdate
+			   ,'수정'
+			   ,#{hisKey}
+			   ,#{hisCn}
+			)
+		</insert>
+		
+		<!-- 댓글 삭제 할 때 -->
+		<insert id="replyDel" parameterType="HstVO">
+		    <selectKey resultType="int" keyProperty="hisNo" order="BEFORE">
+	        	select nvl(max(his_no), 0)+1 from history
+	    	</selectKey>
+			INSERT INTO history (
+			    his_no
+			   ,pmem_cd
+			   ,his_type
+			   ,his_date
+			   ,his_se
+			   ,his_key
+			) VALUES (
+				#{hisNo}
+			   ,#{pmemCd}
+			   ,'게시판 댓글'
+			   ,sysdate
+			   ,'삭제'
+			   ,#{hisKey}
+			)
+		</insert>
+</mapper>

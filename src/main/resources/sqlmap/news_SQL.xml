@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.NewsMapper">
+
+	<!-- 글 등록하기 -->
+	<insert id="insert" parameterType="map">
+		INSERT INTO NEWS(NEWS_NO, NEWS_TTL, NEWS_CN, NEWS_PHOTO, NEWS_DY)
+		VALUES(NEWS_SEQ.NEXTVAL, #{newsTtl}, #{cn},'basic.png',SYSDATE)
+		<selectKey resultType="int" keyProperty="curr" order="AFTER">
+			select news_seq.currval from dual
+		</selectKey>
+	</insert>
+	
+	<!-- 사진 업데이트 -->
+	<update id="updateImg" parameterType="map">
+		update news
+		set news_photo = #{newsPhoto}
+		where news_no = #{newsNo}
+	</update>
+	
+	<!-- 글 목록 -->
+	<select id="list" parameterType="String" resultType="hashMap">
+		select NEWS_NO
+		     , NEWS_TTL
+		     , NEWS_CN
+		     , NEWS_PHOTO
+		     , NEWS_DY
+		     , NEWS_LC
+		     , (select count(*) 
+		     	  from news_like L1 
+		     	 where L1.news_no = N.news_no
+		     	 and L1.nl_like='1') hit
+			     	, nvl((select L2.NL_LIKE 
+			     			 from news_like L2 
+			     			where L2.news_no = N.news_no 
+				 <if test="!memNo.equals('') and memNo!=null">
+			     			  and L2.mem_no=#{memNo}
+			     </if>
+			     			),0) memLike 
+		     , COUNT(*) OVER() AS CNT
+		from news N
+		WHERE <![CDATA[ rownum<=#{listcnt} ]]>
+		ORDER BY NEWS_NO DESC
+	</select>
+	
+	<!-- 좋아요 버튼을 누를때 insert, update 동시 처리 가능 -->
+	<update id="updateHeart" parameterType="hashMap">
+		MERGE INTO NEWS_LIKE USING DUAL
+		ON (NEWS_NO = #{newsNo} AND MEM_NO = #{memNo})
+		WHEN MATCHED THEN
+		UPDATE SET NL_LIKE = MOD(NL_LIKE+1, 2)
+		WHEN NOT MATCHED THEN
+		INSERT (NEWS_NO, MEM_NO, NL_LIKE) VALUES(#{newsNo}, #{memNo},1)
+	</update>
+	
+	<!-- 글 상세보기 -->
+	<select id="getDetail" parameterType="int" resultType="map">
+		SELECT NEWS_NO, NEWS_TTL, NEWS_CN, NEWS_PHOTO, NEWS_DY 
+		FROM NEWS
+		WHERE NEWS_NO = #{newsNo} 
+	</select>
+	
+	<!-- 글 수정하기
+		map : {newsTtl=범고래 icon, newCn=<p>고래 cion</p>, newsPhoto={}, newsNo=47}
+	 -->
+	<update id="update" parameterType="hashMap">
+		UPDATE NEWS
+		SET	NEWS_TTL = #{newsTtl}, NEWS_CN = #{newsCn}, 
+		NEWS_DY = SYSDATE
+		WHERE NEWS_NO = #{newsNo}
+	</update>
+	
+	<!-- 글 삭제하기 -->
+	<delete id="delete" parameterType="int">
+		DELETE FROM NEWS
+		WHERE NEWS_NO = #{newsNo}
+	</delete>
+
+</mapper>

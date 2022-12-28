@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.CostMapper">
+	<!-- 인건비 등록 -->
+	<insert id="createCost" parameterType="hashMap">
+		insert into cost(COST_LV, PROJ_ID, COST_PCNT, COST_PAY) values(#{codeR},#{id},#{cntP},#{ccost})
+	</insert>
+
+	<!-- 인건비 삭제 -->
+	<delete id="costDelete" parameterType="int">
+		delete from cost where proj_id=#{id}
+	</delete>
+	
+	<!-- 내 정산 내역 -->
+	<select id="costList" parameterType="String" resultType="costVO">
+		SELECT A.cost_lv 
+		      , A.proj_id
+              , A.cost_pcnt
+              , TO_CHAR(A.cost_pay * (B.PROJ_EDY-B.PROJ_SDY)/30, '999,999,999,999,999') AS MYCOST
+		      , B.PROJ_BGT
+              , B.PROJ_TTL 
+              , C.PMEM_GRP
+              , B.PROJ_EDY
+              , PROJ_SDY
+              , (TO_DATE(B.PROJ_EDY) - TO_DATE(PROJ_SDY)) AS RPOJ_GIGAN
+              , D.MEM_NM
+		      , SUBSTR(SYSDATE,'4','2') AS THIS_MONTH
+              , SUBSTR(SYSDATE,'4','2')-1 AS LAST_MONTH
+              , SUBSTR(SYSDATE,'4','2')-2 AS LLAST_MONTH
+              , SUBSTR(B.PROJ_EDY,'4','2') AS PROJ_EDYMONTH
+              , B.PROJ_STTS
+              , TO_CHAR(SUM(A.cost_pay*(B.PROJ_EDY-B.PROJ_SDY)/30) OVER(),'999,999,999,999,999') AS SUM
+              , TO_CHAR(A.COST_PAY, '999,999,999,999,999') AS MONTH
+              , TO_CHAR(SUM(A.COST_PAY) OVER(),'999,999,999,999,999')AS MONTH_SUM
+              , REPLACE(TO_CHAR(A.COST_PAY*(B.PROJ_EDY-B.PROJ_SDY)/30, '999,999,999,999,999'),',000,000','') AS PCP
+		      , CASE
+		            WHEN (C.ROLE_ID = 'R01')THEN 'PM'
+		            WHEN (C.ROLE_ID = 'R02')THEN 'PL'
+		            WHEN (C.ROLE_ID = 'R03')THEN 'TA'
+		            WHEN (C.ROLE_ID = 'R04')THEN 'AA'
+		            WHEN (C.ROLE_ID = 'R05')THEN 'UA'
+		            WHEN (C.ROLE_ID = 'R06')THEN 'DA'
+		       END AS GRADE
+		       ,COUNT(*) OVER() AS CNT
+		FROM COST A, PROJECT B, PROMEM C, MEMBER D
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.PROJ_ID = C.PROJ_ID
+		AND A.COST_LV = C.PMEM_LV
+		AND C.MEM_NO = D.MEM_NO
+		AND D.MEM_NO = #{memNo}
+		AND (C.PMEM_RSVP = 'Y'OR C.PMEM_RSVP = 'J')
+		AND B.PROJ_EDY >= SYSDATE
+		AND C.PMEM_ODY IS NULL
+		AND SYSDATE > B.PROJ_SDY
+		ORDER BY A.PROJ_ID ASC
+	</select>
+	
+	<!-- 이번달 소득 -->
+	<select id="thisMonthCost" parameterType="String" resultType="String">
+		SELECT DISTINCT 
+        SUBSTR(SUM(A.COST_PAY) OVER(),'1','2') AS MONTH_SUM
+		FROM COST A, PROJECT B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.PROJ_ID = C.PROJ_ID
+		AND A.COST_LV = C.PMEM_LV
+        AND B.PROJ_ID = C.PROJ_ID
+		AND C.MEM_NO = #{memNo}
+		AND (C.PMEM_RSVP = 'Y'OR C.PMEM_RSVP = 'J')
+		AND B.PROJ_EDY >= SYSDATE
+		AND SYSDATE >= B.PROJ_SDY
+		AND C.PMEM_ODY IS NULL
+	</select>
+	
+	<!-- 지난달 소득 -->
+	<select id="lastMonthCost" parameterType="String" resultType="String">
+		SELECT DISTINCT 
+		SUBSTR(SUM(A.COST_PAY) OVER(),'1','2') AS MONTH_SUM
+		FROM COST A, PROJECT B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.PROJ_ID = C.PROJ_ID
+		AND A.COST_LV = C.PMEM_LV
+        AND B.PROJ_ID = C.PROJ_ID
+		AND C.MEM_NO = #{memNo}
+		AND (C.PMEM_RSVP = 'Y'OR C.PMEM_RSVP = 'J')
+		AND B.PROJ_EDY >= ADD_MONTHS(SYSDATE,-1)
+		AND ADD_MONTHS(SYSDATE,-1) >= B.PROJ_SDY
+		AND C.PMEM_ODY IS NULL
+	</select>
+	
+	<!-- 지지난달 소득 -->
+	<select id="llastMonthCost" parameterType="String" resultType="String">
+		SELECT DISTINCT 
+	 	SUBSTR(SUM(A.COST_PAY) OVER(),'1','2') AS MONTH_SUM 
+		FROM COST A, PROJECT B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND A.PROJ_ID = C.PROJ_ID
+		AND A.COST_LV = C.PMEM_LV
+        AND B.PROJ_ID = C.PROJ_ID
+		AND C.MEM_NO = #{memNo}
+		AND (C.PMEM_RSVP = 'Y'OR C.PMEM_RSVP = 'J')
+		AND B.PROJ_EDY >= ADD_MONTHS(SYSDATE,-2)
+		AND ADD_MONTHS(SYSDATE,-2) >= B.PROJ_SDY
+		AND C.PMEM_ODY IS NULL
+	</select>
+	
+
+</mapper>

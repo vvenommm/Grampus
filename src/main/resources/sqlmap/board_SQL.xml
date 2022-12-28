@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.BoardMapper">
+	<!-- 게시판 조회 -->
+	<select id="boardList" parameterType="boardVO" resultType="boardVO">
+		WITH U AS (
+			SELECT ROW_NUMBER() OVER(ORDER BY T.BRD_DY DESC) RNUM
+				 , T.*
+			FROM (
+		        SELECT B.BRD_NO
+	                , B.PMEM_CD
+	                , B.BRD_HEAD
+	                , B.BRD_TTL
+	                , B.BRD_CN
+	                , B.BRD_DY
+	                , B.BRD_INQ
+	                , PJ.PROJ_ID
+	                , PF.PROF_NM
+	            FROM BOARD B, PROMEM P, PROJECT PJ, PROFILE PF, MEMBER M
+	            WHERE B.PMEM_CD = P.PMEM_CD
+	            AND P.PROJ_ID = PJ.PROJ_ID
+	            AND PJ.PROJ_ID = PF.PROJ_ID
+	            AND P.MEM_NO = M.MEM_NO
+	            AND PF.MEM_NO = M.MEM_NO
+				AND B.BRD_HEAD = #{brdHead}
+				AND P.PROJ_ID = #{projId}
+				AND P.PMEM_GRP = #{pmemGrp}
+			) T
+		)
+		SELECT U.*
+		FROM U
+		WHERE U.RNUM BETWEEN (#{currentPage} * #{show}) - (#{show}-1) AND (#{currentPage} * #{show})
+	</select>
+	
+	<!-- 게시판 상세조회 -->
+	<select id="boardDetail" parameterType="boardVO" resultType="boardVO">
+		SELECT B.BRD_NO
+			, B.BRD_HEAD
+			, B.PMEM_CD
+			, B.BRD_TTL
+			, B.BRD_CN
+			, PF.PROF_NM
+			, B.BRD_DY
+			, B.BRD_INQ
+			, PJ.PROJ_ID
+			, PJ.PROJ_TTL
+		FROM BOARD B, PROMEM PR, PROJECT PJ, PROFILE PF, MEMBER M
+		WHERE B.PMEM_CD = PR.PMEM_CD
+		AND PR.PROJ_ID = PJ.PROJ_ID
+		AND PJ.PROJ_ID = PF.PROJ_ID
+		AND PR.MEM_NO = M.MEM_NO
+		AND PF.MEM_NO = M.MEM_NO
+		AND B.BRD_NO  = #{brdNo}
+		AND PJ.PROJ_ID = #{projId}
+		AND PR.PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 게시판 조회수 증가 -->
+	<update id="boardHit" parameterType="String">
+		UPDATE BOARD
+		SET BRD_INQ = BRD_INQ + 1
+		WHERE BRD_NO = #{brdNo}
+	</update>
+	
+	<!-- 게시판 삽입 -->
+	<insert id="boardInsert" parameterType="boardVO">
+		<selectKey order="BEFORE" resultType="String" keyProperty="brdNo">
+			SELECT NVL(MAX(TO_NUMBER(BRD_NO)),0)+1 FROM BOARD
+		</selectKey>
+		
+		INSERT INTO BOARD(
+			BRD_NO
+			, PMEM_CD
+			, BRD_HEAD
+			, BRD_TTL
+			, BRD_CN
+			, BRD_DY
+			, BRD_INQ
+		)
+		VALUES(#{brdNo}, #{pmemCd}, #{brdHead}, #{brdTtl}, #{brdCn}, SYSDATE, 0)
+	</insert>
+	
+	<!-- 게시판 수정 -->
+	<update id="boardUpdate" parameterType="boardVO">
+		UPDATE BOARD
+		SET BRD_TTL = #{brdTtl}, BRD_CN = #{brdCn}, BRD_DY = SYSDATE
+		WHERE BRD_NO = #{brdNo}
+	</update>
+	
+	<!-- 게시판 삭제 -->
+	<delete id="boardDelete" parameterType="String">
+		DELETE FROM BOARD WHERE BRD_NO = #{brdNo}
+    </delete>
+    
+    <!-- PMEMCD 가져오기 -->
+    <select id="getPmemCd" parameterType="boardVO" resultType="boardVO">
+    	SELECT PMEM_CD FROM PROMEM
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_GRP = #{pmemGrp}
+		AND MEM_NO = #{memNo}
+    </select>
+    
+  	 <!-- 보트 삭제 시 첨부파일 삭제 -->
+	<delete id="attachDel" parameterType="String">
+		DELETE FROM ATTACHF WHERE BRD_NO= #{brdNo}
+    </delete>
+    
+    
+    <!-- 프로젝트명 가져오기 -->
+    <select id="projTtl" parameterType="boardVO" resultType="boardVO">
+	    SELECT DISTINCT PJ.PROJ_TTL, PJ.PLAN_TTL, P.PMEM_GRP
+		FROM PROMEM P, PROJECT PJ
+		WHERE P.PROJ_ID = PJ.PROJ_ID
+		AND P.PROJ_ID = #{projId}
+		AND P.PMEM_GRP = #{pmemGrp}
+    </select>
+    
+    
+    
+    
+    
+    
+	<!-- ////////////////////////////////////////////////////페이징용 쿼리//////////////////////////////////////////////////// -->
+    <!-- 전체 글 갯수 -->
+    <select id="totalPages" parameterType="boardVO" resultType="int">
+	    SELECT COUNT(*) total
+		FROM BOARD B, PROMEM P, PROJECT PJ
+		WHERE B.PMEM_CD = P.PMEM_CD
+		AND P.PROJ_ID = PJ.PROJ_ID
+		AND B.BRD_HEAD = #{brdHead}
+		AND P.PROJ_ID = #{projId}
+		AND P.PMEM_GRP = #{pmemGrp}
+    </select>
+</mapper>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.WikiMapper">
+
+<select id="wikiList" parameterType="wikiVO" resultType="wikiVO">
+	SELECT WIKI_NO
+		 , PROJ_ID
+		 , WIKI_TTL
+		 , <![CDATA[ regexp_replace (replace(WIKI_CN, '&'||'lt;','<' ),'&'||'gt;','>')as WIKI_CN]]>
+		 ,  COUNT(*) OVER() AS CNT
+	FROM WIKI
+	WHERE PROJ_ID = #{projId}
+	and WIKI_CN like '%'||#{scon}||'%'
+</select>
+
+<insert id="wikiInsert" parameterType="wikiVO">
+	<selectKey order="BEFORE" resultType="int" keyProperty="wikiNo">
+		SELECT MAX(WIKI_NO) +1 FROM WIKI
+	</selectKey>
+	INSERT INTO WIKI(WIKI_NO, PROJ_ID, WIKI_TTL, WIKI_CN)
+		VALUES(
+				#{wikiNo}, #{projId}, #{wikiTtl}, #{wikiCn}
+		)
+
+</insert>
+
+<update id="wikiUpdate" parameterType="wikiVO">
+	UPDATE WIKI
+	SET WIKI_TTL = #{wikiTtl}, WIKI_CN = #{wikiCn}
+	WHERE WIKI_NO = #{wikiNo}
+</update>
+
+<delete id="wikiDelete" parameterType="int">
+	DELETE FROM WIKI
+	WHERE WIKI_NO = #{wikiNo}
+</delete>
+
+<!-- 프로젝트, 멤버 pm구하기 -->
+<select id="wikiPm" parameterType="profileVO" resultType="profileVO">
+	SELECT A.MEM_NO, A.PROJ_ID
+	        , COUNT(*) OVER() AS CNT
+	        ,C.ROLE_ID
+	FROM PROFILE A , PROJECT B, PROMEM C
+	WHERE  A.PROJ_ID = B.PROJ_ID
+	AND B.PROJ_ID = C.PROJ_ID
+	AND A.MEM_NO = C.MEM_NO
+	AND A.MEM_NO = #{memNo}
+	AND A.PROJ_ID = #{projId}
+	AND C.ROLE_ID = 'R01'
+</select>
+
+<!-- 프로젝트 제목 -->
+<select id="projTtl" parameterType="wikiVO" resultType="wikiVO">
+	SELECT DISTINCT  PJ.PROJ_TTL, PJ.PLAN_TTL
+	FROM WIKI W, PROJECT PJ
+	WHERE W.PROJ_ID = PJ.PROJ_ID
+	AND W.PROJ_ID = #{projId}
+</select>
+
+</mapper>

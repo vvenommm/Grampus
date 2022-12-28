@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.InvitationMapper">
+	<!-- 초대장 발송 시 테이블에 등록 -->
+	<insert id="inviSend" parameterType="invVO">
+		<selectKey resultType="int" keyProperty="invNo" order="BEFORE">
+        	SELECT NVL(MAX(INV_NO), 0)+1 FROM INVITATION
+    	</selectKey>
+    	INSERT INTO invitation (
+		    inv_no
+		   ,inv_email
+		   ,inv_cd
+		   ,proj_id
+		   ,pmem_grp
+		   ,inv_day
+		) VALUES (
+		    #{invNo}
+		   ,#{invEmail}
+		   ,#{invCd}
+		   ,#{projId}
+		   ,#{pmemGrp}
+		   ,sysdate
+		)
+	</insert>
+	
+	<!-- ranKey 갖고오는 쿼리 -->
+	<select id="getRanKey" parameterType="invVO" resultType="invVO">
+		SELECT INV_CD
+		FROM INVITATION
+		WHERE INV_EMAIL = #{invEmail}
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 코드 중복 발행 방지 및 회원가입 시 초대장 코드 입력 시 비교하기 -->
+	<select id="inviCdChk" parameterType="invVO" resultType="invVO">
+		SELECT
+			 INV_NO
+			,INV_EMAIL
+			,INV_CD
+			,PROJ_ID
+			,PMEM_GRP
+			,INV_DAY
+		FROM INVITATION
+		WHERE INV_CD = #{invCd}
+		AND INV_EMAIL = #{invEmail}
+		AND PROJ_ID = #{projId}
+	</select>
+	
+	<!-- 이미 초대장 보냈는지 확인하는 select -->
+	<select id="inviChk" parameterType="invVO" resultType="invVO">
+		SELECT
+		    INV_NO
+		   ,INV_EMAIL
+		   ,INV_CD
+		   ,PROJ_ID
+		   ,PMEM_GRP
+		   ,INV_DAY
+		FROM
+		    INVITATION
+		WHERE INV_EMAIL = #{invEmail}
+		AND PROJ_ID = #{projId}
+		AND PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 초대장으로 가입 시킨 후에 테이블에서 삭제 -->
+	<delete id="inviDel" parameterType="invVO">
+		DELETE FROM INVITATION
+		WHERE INV_CD = #{invCd}
+	</delete>
+	
+	<!-- 이메일 초대장 못 받아서 다시 초대장 보낼 때 인증코드 update 시키기 -->
+	<update id="invCdUp" parameterType="invVO">
+		UPDATE INVITATION
+		SET INV_CD = #{invCd},
+			PMEM_GRP = #{pmemGrp}
+		WHERE INV_EMAIL = #{invEmail}
+		AND PROJ_ID = #{projId}
+	</update>
+	
+	<!-- 유효기간 확인 -->
+	<select id="isitExpired" parameterType="invVO" resultType="invVO">
+		SELECT
+		    INV_NO
+		   ,INV_EMAIL
+		   ,INV_CD
+		   ,PROJ_ID
+		   ,PMEM_GRP
+		   ,INV_DAY
+		FROM
+		    INVITATION
+		WHERE INV_EMAIL = (SELECT MEM_ID FROM MEMBER WHERE MEM_NO = #{memNo})
+		AND PROJ_ID = #{projId}
+		AND INV_CD = #{invCd}
+		AND PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 3일 지난 초대코드 삭제 -->
+	<delete id="delInvitation">
+		delete from invitation
+		where INV_DAY <![CDATA[<]]> sysdate-3
+	</delete>
+	
+	<select id="inviCdJoining" parameterType="String" resultType="proMemVO">
+		SELECT PROJ_ID
+			 , PMEM_GRP
+		FROM INVITATION
+		WHERE INV_CD = #{invCd}
+	</select>
+</mapper>

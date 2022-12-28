@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.IssueMapper">
+	<!-- 이슈 리스트 출력(PM용) -->
+	<select id="issueList" parameterType="hashMap" resultType="hashMap">
+		SELECT I.ISSUE_NO, I.TASK_NO, I.ISSUE_TYPE, I.ISSUE_TTL, I.ISSUE_CN, I.ISSUE_STTS, I.PMEM_CD, 
+			   TO_CHAR(I.ISSUE_DY, 'YYYY.MM.DD') ISSUE_DY, B.PMEM_GRP, B.PROF_NM, B.MEM_NO
+		FROM ISSUE I, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO
+		                                FROM PROFILE PRO, MEMBER M
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B 
+		WHERE I.PMEM_CD = B.PMEM_CD
+		AND I.TASK_NO IN (SELECT TASK_NO FROM TASK
+		                  WHERE PROJ_ID = #{projId})
+		ORDER BY I.ISSUE_NO DESC		                  
+	</select>
+
+	<!-- 이슈 리스트 출력(나머지용) -->
+	<select id="issueList2" parameterType="hashMap" resultType="hashMap">
+		SELECT I.ISSUE_NO, I.TASK_NO, I.ISSUE_TYPE, I.ISSUE_TTL, I.ISSUE_CN, I.ISSUE_STTS, I.PMEM_CD, 
+			   TO_CHAR(I.ISSUE_DY, 'YYYY.MM.DD') ISSUE_DY, B.PMEM_GRP, B.PROF_NM, B.MEM_NO
+		FROM ISSUE I, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO
+		                                FROM PROFILE PRO, MEMBER M
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B
+		WHERE I.PMEM_CD = B.PMEM_CD
+		AND B.PMEM_GRP = #{pmemGrp}
+		AND I.TASK_NO IN (SELECT TASK_NO FROM TASK
+		                  WHERE PROJ_ID = #{projId})
+		ORDER BY I.ISSUE_NO DESC		                  
+	</select>
+	
+	<!-- 이슈 등록 시 같은 팀의 전체 일감 가져오기 -->
+	<select id="getTaskInfo" parameterType="hashMap" resultType="taskVO">
+		SELECT TASK_NO, PROJ_ID, TASK_TTL, TASK_CN, TASK_SDY, TASK_EDY, TASK_PRIORITY, TASK_STTS, TASK_PROGRESS, TASK_PARENT, PMEM_CD
+		FROM TASK
+		WHERE PROJ_ID = #{projId}
+		AND PMEM_CD IN (SELECT PMEM_CD
+		                FROM PROMEM
+		                WHERE PROJ_ID = #{projId}
+		                AND PMEM_GRP = #{pmemGrp})
+	</select>
+	
+	<!-- 이슈 상세 정보 -->
+	<select id="issueDetail" parameterType="hashMap" resultType="hashMap">
+		SELECT I.ISSUE_NO, I.TASK_NO, I.ISSUE_TYPE, I.ISSUE_TTL, I.ISSUE_CN, I.ISSUE_STTS, I.PMEM_CD, TO_CHAR(I.ISSUE_DY, 'YYYY.MM.DD HH:MM') ISSUE_DY, A.PROF_NM, A.MEM_NO, A.PROJ_ID
+		FROM ISSUE I, (SELECT PROF_NM, MEM_NO, PROJ_ID 
+		               FROM PROFILE
+		               WHERE PROJ_ID = #{projId}
+		               AND MEM_NO = (SELECT MEM_NO
+		                             FROM PROMEM
+		                             WHERE PMEM_CD = (SELECT PMEM_CD FROM ISSUE 
+		                                              WHERE ISSUE_NO = #{issueNo})
+		                             AND PROJ_ID = #{projId})) A
+		WHERE I.ISSUE_NO = #{issueNo}
+	</select>
+	
+	<!-- 이슈 삭제 -->
+	<delete id="deleteIssue" parameterType="string">
+		DELETE FROM ISSUE
+		WHERE ISSUE_NO = #{issueNo}
+	</delete>
+	
+	<!-- 일감 삭제 시 관련 이슈 모두 삭제 -->
+	<delete id="autoDelete" parameterType="string">
+		DELETE FROM ISSUE
+		WHERE TASK_NO = #{taskNo}
+	</delete>
+	
+	<!-- 이슈 댓글 작성자와 로그인한 사람 동일 여부 판단 -->
+	<select id="checkPmemcd" parameterType="proMemVO" resultType="int">
+		SELECT PMEM_CD FROM PROMEM
+		WHERE PROJ_ID = #{projId}
+		AND MEM_NO = #{memNo}
+		AND PMEM_GRP = #{pmemGrp}
+	</select>
+	
+	<!-- 이슈 등록 -->
+	<insert id="insertIssue" parameterType="issueVO">
+		INSERT INTO ISSUE(ISSUE_NO, TASK_NO, ISSUE_TYPE, ISSUE_TTL, ISSUE_CN, ISSUE_STTS, PMEM_CD, ISSUE_DY)
+		VALUES(ISSUE_NO.NEXTVAL, #{taskNo}, #{issueType}, #{issueTtl}, #{issueCn}, #{issueStts}, #{pmemCd}, #{issueDy})
+		<selectKey resultType="String" keyProperty="issueNo" order="AFTER">
+        	SELECT NVL(MAX(TO_NUMBER(ISSUE_NO)), 0) FROM ISSUE
+    	</selectKey>
+	</insert>
+	
+	<!-- 이슈 수정 -->
+	<update id="updateIssue" parameterType="issueVO">
+		UPDATE ISSUE
+		SET ISSUE_TTL = #{issueTtl}, TASK_NO = #{taskNo}, ISSUE_DY = #{issueDy}, ISSUE_STTS = #{issueStts}, ISSUE_TYPE = #{issueType}, ISSUE_CN = #{issueCn}
+		WHERE ISSUE_NO = #{issueNo}
+		<selectKey resultType="int" keyProperty="pmemCd" order="AFTER">
+        	SELECT PMEM_CD FROM ISSUE WHERE ISSUE_NO = #{issueNo}
+    	</selectKey>
+	</update>
+	
+	<!-- 개선 개수(PM용) -->
+	<select id="improveCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId})
+		AND ISSUE_TYPE = '개선'
+	</select>
+	
+	<!-- 개선 개수(나머지용) -->
+	<select id="improveCount2" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId}
+		                  AND PMEM_GRP = #{pmemGrp})
+		AND ISSUE_TYPE = '개선'
+	</select>
+	
+	<!-- 결함 개수(PM용) -->
+	<select id="defectCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId})
+		AND ISSUE_TYPE = '결함'
+	</select>
+	
+	<!-- 결함 개수(나머지용) -->
+	<select id="defectCount2" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId}
+		                  AND PMEM_GRP = #{pmemGrp})
+		AND ISSUE_TYPE = '결함'
+	</select>
+	
+	<!-- 인사 개수(PM용) -->
+	<select id="personalCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId})
+		AND ISSUE_TYPE = '인사'
+	</select>
+	
+	<!-- 인사 개수(나머지용) -->
+	<select id="personalCount2" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId}
+		                  AND PMEM_GRP = #{pmemGrp})
+		AND ISSUE_TYPE = '인사'
+	</select>
+	
+	<!-- 기타 개수(PM용) -->
+	<select id="etcCount" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId})
+		AND ISSUE_TYPE = '기타'
+	</select>
+	
+	<!-- 기타 개수(나머지용) -->
+	<select id="etcCount2" parameterType="hashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ISSUE
+		WHERE PMEM_CD IN (SELECT PMEM_CD
+		                  FROM PROMEM
+		                  WHERE PROJ_ID = #{projId}
+		                  AND PMEM_GRP = #{pmemGrp})
+		AND ISSUE_TYPE = '기타'
+	</select>
+	
+	<!-- 일괄편집 수정 -->
+	<update id="updateAll" parameterType="issueVO">
+		UPDATE ISSUE 
+		SET ISSUE_TYPE = #{issueType}, ISSUE_TTL = #{issueTtl}, ISSUE_STTS = #{issueStts}, ISSUE_DY = #{issueDy}
+		WHERE ISSUE_NO = #{issueNo}
+	</update>
+	
+	<!-- 이슈 종류별 정렬(모두) -->
+	<select id="isSortAll" parameterType="hashMap" resultType="hashMap">
+		SELECT I.ISSUE_NO, I.TASK_NO, I.ISSUE_TYPE, I.ISSUE_TTL, I.ISSUE_CN, I.ISSUE_STTS, I.PMEM_CD, 
+			   TO_CHAR(I.ISSUE_DY, 'YYYY.MM.DD') ISSUE_DY, B.PMEM_GRP, B.PROF_NM, B.MEM_NO
+		FROM ISSUE I, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO
+		                                FROM PROFILE PRO, MEMBER M
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B
+		WHERE I.PMEM_CD = B.PMEM_CD
+		AND I.TASK_NO IN (SELECT TASK_NO FROM TASK
+		                  WHERE PROJ_ID = #{projId})
+		AND I.ISSUE_TYPE = #{issueType}   
+		ORDER BY I.ISSUE_NO DESC	
+	</select>
+	
+	<!-- 이슈 종류별 정렬(팀별) -->
+	<select id="isSortGrp" parameterType="hashMap" resultType="hashMap">
+		SELECT I.ISSUE_NO, I.TASK_NO, I.ISSUE_TYPE, I.ISSUE_TTL, I.ISSUE_CN, I.ISSUE_STTS, I.PMEM_CD, 
+			   TO_CHAR(I.ISSUE_DY, 'YYYY.MM.DD') ISSUE_DY, B.PMEM_GRP, B.PROF_NM, B.MEM_NO
+		FROM ISSUE I, (
+		                SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO
+		                FROM PROMEM PM,(
+		                                SELECT PRO.PROF_NM, M.MEM_NO
+		                                FROM PROFILE PRO, MEMBER M 
+		                                WHERE PRO.MEM_NO = M.MEM_NO
+		                                AND PRO.PROJ_ID = #{projId}
+		                                ) A
+		                WHERE PM.MEM_NO = A.MEM_NO
+		                AND PM.PROJ_ID = #{projId}
+		                ) B
+		WHERE I.PMEM_CD = B.PMEM_CD
+		AND B.PMEM_GRP = #{pmemGrp}
+		AND I.TASK_NO IN (SELECT TASK_NO FROM TASK
+		                  WHERE PROJ_ID = #{projId})
+		AND I.ISSUE_TYPE = #{issueType}                 
+		ORDER BY I.ISSUE_NO DESC	
+	</select>
+	
+	<!-- 이슈 작성자 불러오기 -->
+	<select id="getWriter" parameterType="int" resultType="String">
+		select p.mem_no from promem p, issue i
+		where i.issue_no = #{issueNo}
+		and i.pmem_cd = p.pmem_cd
+	</select>
+</mapper>

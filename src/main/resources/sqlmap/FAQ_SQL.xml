@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.FAQMapper">
+	<select id="faqList" resultType="faqVO">
+		SELECT FAQ_NO
+			, FAQ_TTL
+			, FAQ_CN
+			, COUNT(*) OVER() AS CNT
+		FROM FAQ
+	</select>
+	
+	<select id="faqDetail" parameterType="String" resultType="faqVO">
+		SELECT FAQ_NO
+			, FAQ_TTL
+			, FAQ_CN
+			, COUNT(*) OVER() AS CNT
+		FROM FAQ
+		WHERE FAQ_NO = #{faqNO}
+	</select>
+	
+	<insert id="faqInsert" parameterType="faqVO">
+		<selectKey order="BEFORE" resultType="String" keyProperty="faqNo">
+			SELECT NVL(MAX(FAQ_NO),0)+1 FROM FAQ
+		</selectKey>
+		INSERT INTO FAQ(
+			FAQ_NO
+			, FAQ_TTL
+			, FAQ_CN
+		)
+		VALUES(#{faqNo}, #{faqTtl}, #{faqCn})
+	</insert>
+</mapper>

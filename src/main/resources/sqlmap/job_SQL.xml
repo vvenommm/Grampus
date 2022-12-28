@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.JobMapper">
+		<!-- 구인공고 목록 -->
+		<select id="jobList" parameterType="hashMap" resultType="hashMap">
+			select rownum, jp.* from (select a.job_recru, b.proj_ttl, a.proj_id, a.job_cn, a.job_wdy, a.job_edy, a.job_volcnt, a.job_tech from job a, project b where a.proj_id = b.proj_id and b.proj_ttl like '%'||#{scon}||'%' order by a.job_wdy desc) jp where <![CDATA[ rownum<=#{listcnt} ]]>
+		</select>
+		
+		<!-- 북마크 목록 -->
+		<select id="markList" parameterType="String" resultType="int">
+			select proj_id from mark where mem_no = (select mem_no from member where mem_id = #{memId})
+		</select>
+		
+		<!-- 프로젝트 정보 -->
+		<select id="projVal" parameterType="int" resultType="hashMap">
+			select proj_id, pay_no, proj_stts, proj_ttl, proj_cn, to_char(proj_bgt,'FM999,999,999,999,999') proj_bgt, proj_sdy, proj_edy, proj_limit, proj_party from project where proj_id = #{projId}
+		</select>
+		
+		<!-- 구인공고 정보 -->
+		<select id="jobVal" parameterType="int" resultType="hashMap">
+			select proj_id, job_cn, job_wdy, job_edy, to_char(job_edy, 'yyyy-mm-dd') job_edy2, job_volcnt, job_recru, job_tech from job where proj_id = #{projId}
+		</select>
+		
+		<!-- 인건비 정보 -->
+		<select id="costVal" parameterType="int" resultType="hashMap">
+			select cost_lv, proj_id, cost_pcnt, to_char(cost_pay,'FM999,999,999,999,999') cost_pay from cost where proj_id = #{projId}
+		</select>
+		
+		<!-- 구인공고 등록 -->
+		<insert id="jobRegist" parameterType="hashMap">
+			insert into job(proj_id, job_cn, job_wdy, job_edy, job_volcnt, job_recru, job_tech) values(#{projId},#{jobCon},sysdate,#{jobEnd},0,#{jobRec},#{jobTval})
+		</insert>
+		
+		<!-- 구인공고 수정 -->
+		<update id="jobModify" parameterType="hashMap">
+			update job set job_cn=#{jobCon}, job_edy=#{jobEnd}, job_recru=#{jobRec}, job_tech=#{jobTval} where proj_id = #{projId}
+		</update>
+		
+		<!-- 구인공고 삭제 -->
+		<delete id="jobDelete" parameterType="int">
+			delete from job where proj_id=#{projId}
+		</delete>
+		
+		<!-- 구인공고 지원자 삭제 -->
+		<delete id="appliDelete" parameterType="int">
+			delete from applicant where proj_id=#{projId}
+		</delete>
+		
+		<!-- 마이페이지 북마크 리스트 -->
+		<select id="bookMarkList" parameterType="jobVO" resultType="jobVO">
+			SELECT A.PROJ_ID
+			     , A.JOB_CN
+			     , A.JOB_WDY
+			     , A.JOB_EDY
+			     , A.JOB_VOLCNT
+			     , A.JOB_RECRU
+			     , A.JOB_TECH
+				 , B.MEM_NO
+				 , C.PROJ_TTL
+				 , C.PROJ_CN
+				 , C.PROJ_STTS 
+				 , C.PROJ_BGT
+				 ,(TO_DATE(C.PROJ_EDY) - TO_DATE(C.PROJ_SDY))ENDDATE,(TO_DATE(A.JOB_EDY) - TO_DATE(SYSDATE))DDAY 
+				 , COUNT(*) OVER() AS CNT
+			FROM JOB A, MARK B, PROJECT C
+			WHERE A.PROJ_ID =  B.PROJ_ID
+			AND A.PROJ_ID = C.PROJ_ID
+			AND MEM_NO = #{memNo}
+			AND A.JOB_EDY > SYSDATE
+			AND C.PROJ_TTL like '%'||#{scon}||'%'
+			ORDER BY JOB_EDY ASC
+		</select>
+
+</mapper>

@@ -1,0 +1,923 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.ProjectMapper">
+
+	
+	<!-- 프로젝트 등록 -->
+	<insert id="createProj" parameterType="map">
+		INSERT INTO PROJECT(PROJ_ID, PAY_NO, PROJ_STTS, PROJ_TTL, PROJ_CN, PROJ_BGT, PROJ_SDY, PROJ_EDY, PROJ_LIMIT, PROJ_PARTY, PLAN_TTL, PROJ_PHOTO) 
+		VALUES((SELECT NVL(MAX(PROJ_ID), 0)+1 FROM PROJECT) ,null,'신규',#{name},#{explan},#{paym},#{start},#{end},#{joinVal},1,'BASIC','basic.png')
+		<selectKey resultType="int" keyProperty="curr" order="AFTER">
+        	SELECT NVL(MAX(PROJ_ID), 0) FROM PROJECT
+    	</selectKey>	
+	</insert>
+	
+	<!-- 프로젝트 이미지 이름 업데이트 -->
+	<update id="updateProjImg" parameterType="map">
+		update project set proj_photo = #{projPhoto} where proj_id = #{projId}
+	</update>
+	
+	<!-- 결제하고나면 payno 업데이트하기 -->
+	<update id="updatePayNo" parameterType="projectVO">
+		UPDATE PROJECT
+		SET PAY_NO = #{payNo}, PLAN_TTL = #{planTtl}
+		WHERE PROJ_ID = #{projId}
+	</update>
+	
+	<!-- 프로젝트 정보 불러오기 -->
+	<select id="projInfo" parameterType="int" resultType="hashMap">
+		select proj_id, pay_no, proj_stts, proj_ttl, proj_cn, to_char(proj_bgt,'FM999,999,999,999') proj_bgt, proj_sdy, proj_edy, proj_limit, proj_party, plan_ttl, proj_photo from project where proj_id = #{projId}
+	</select>
+	
+	<!-- 프로젝트 인건비 불러오기 -->
+	<select id="projCost" parameterType="int" resultType="hashMap">
+		select cost_lv, proj_id, cost_pcnt, to_char(cost_pay,'FM999,999,999,999') cost_pay from cost where proj_id = #{projId}
+	</select>
+	
+	<!-- 프로젝트 전체 맴버 불러오기 -->
+	<select id="projMember" parameterType="map" resultType="hashMap">
+		select distinct a.prof_nm, a.prof_photo, B.Proj_Id, to_char(B.Pmem_Idy, 'yyyy.MM.dd') Pmem_Idy, to_char(B.Pmem_Ody, 'yyyy.MM.dd') pmem_ody, b.mem_no
+		from profile a, (
+	                        select p.proj_id, pm.mem_no, Pm.Pmem_Idy, Pm.Pmem_Ody
+	                        from project p, promem pm
+	                        where p.proj_id = pm.proj_id
+	                        and Pm.Pmem_Ody is null
+	                        and p.proj_id = #{projId} ) b
+		where a.proj_id = b.proj_id
+		and a.mem_no = b.mem_no
+		<if test="content != ''">
+		and a.prof_nm like '%' || #{content} || '%'
+		</if>
+		order by case when a.prof_nm between '가' and '힣' then 0
+		when (a.prof_nm <![CDATA[<]]> '가' or a.prof_nm <![CDATA[>]]> '힣') then 1
+		else 2 end asc, a.prof_nm asc
+	</select>
+	
+	<!-- 프로젝트 멤버 그룹별로 불러오기 & 그룹 없는 프로젝트 전체 멤버 -->
+	<select id="pmemGrpList" parameterType="map" resultType="map">
+		select distinct a.prof_nm, a.prof_photo, B.Proj_Id,  to_char(B.Pmem_Idy, 'yyyy.MM.dd') Pmem_Idy, 
+				to_char(B.Pmem_Ody, 'yyyy.MM.dd') pmem_ody, b.mem_no, b.Role_Nm, b.pmem_grp
+		from profile a, (
+	                        select p.proj_id, pm.mem_no, Pm.Pmem_Idy, Pm.Pmem_Ody, R.Role_Nm, pm.pmem_grp
+	                        from project p, promem pm, role r
+	                        where pm.proj_id = p.proj_id
+	                        and pm.role_id = r.role_id
+	                        and Pm.Pmem_Ody is null
+	                        and p.proj_id = #{projId}
+	                        and Pm.Pmem_Grp = #{grp}
+	                        order by r.role_id) b
+		where a.proj_id = b.proj_id
+		and a.mem_no = b.mem_no
+		order by case when a.prof_nm between '가' and '힣' then 0
+		when (a.prof_nm <![CDATA[<]]> '가' or a.prof_nm <![CDATA[>]]> '힣') then 1
+		else 2 end asc, a.prof_nm asc
+	</select>
+	
+	
+	<!-- 구인공고 승인 한 후의 그 사람 정보 가져오기 -->
+	<select id="afterAprvAppli" parameterType="map" resultType="projectVO">
+		select distinct a.prof_nm, a.prof_photo, B.Proj_Id,  to_char(B.Pmem_Idy, 'yyyy.MM.dd') Pmem_Idy, 
+				to_char(B.Pmem_Ody, 'yyyy.MM.dd') pmem_ody, b.mem_no, b.Role_Nm, b.pmem_grp
+		from profile a, (
+		                    select p.proj_id, pm.mem_no, Pm.Pmem_Idy, Pm.Pmem_Ody, R.Role_Nm, pm.pmem_grp
+		                    from project p, promem pm, role r
+		                    where pm.proj_id = p.proj_id
+		                    and pm.role_id = r.role_id
+		                    and Pm.Pmem_Ody is null
+		                    and p.proj_id = #{projId}
+		                    and Pm.Pmem_Grp = #{grp}
+		                    and Pm.Pmem_Rsvp = 'J'
+		                    order by r.role_id) b
+		where a.proj_id = b.proj_id
+		and a.mem_no = b.mem_no
+	</select>
+	
+	
+	<!-- 프로젝트별 그룹 리스트 -->
+	<select id="grpList" parameterType="int" resultType="map">
+		select distinct pmem_grp
+		from promem
+		where proj_id = #{projId}
+		order by case when pmem_grp = '전체' then 0
+		when pmem_grp between '가' and '힣' then 1
+		when (pmem_grp <![CDATA[<]]> '가' or pmem_grp <![CDATA[>]]> '힣') then 2
+		else 3 end asc, pmem_grp asc
+	</select>
+	
+	<!-- 멤버 추방하기 - 추방된 멤버 프로필 삭제는 profile 테이블에 있음 -->
+	<update id="kickOut" parameterType="map">
+		update promem
+		set pmem_ody = sysdate
+		where mem_no = #{memNo}
+		and	proj_id = #{projId}
+	</update>
+	
+	<!-- 추방된 멤버 프로필 삭제하기 -->
+	<delete id="delProf" parameterType="map">
+		delete from profile
+		where proj_id = #{projId}
+		and mem_no = #{memNo}
+	</delete>
+	
+	<!-- 프로젝트 구인공고 불러오기 -->
+	<select id="projJob" parameterType="int" resultType="hashMap">
+		select proj_id, job_cn, job_wdy, job_edy, job_volcnt, job_recru, job_tech from job where proj_id = #{projId}
+	</select>
+	
+	<!-- 프로젝트 지원자 목록 불러오기 -->
+	<select id="projAppli" parameterType="int" resultType="hashMap">
+		select a.proj_id
+			 , b.mem_id
+			 , b.mem_nm
+			 , a.mem_no
+			 , a.app_yn 
+		from applicant a, member b 
+		where a.proj_id = #{projid} 
+		  and a.mem_no = b.mem_no 
+		  order by case when a.app_yn = 'W' then 0
+		  when (a.app_yn = 'Y' and b.mem_nm between '가' and '힣') then 1
+		  when (a.app_yn = 'N' and b.mem_nm between '가' and '힣') then 2
+		  else 3 end asc, b.mem_nm asc
+	</select>
+	
+	<!-- 프로젝트 정보 수정 -->
+	<update id="projModify" parameterType="hashMap">
+		update project set proj_stts=#{stats}, proj_ttl=#{name}, proj_cn=#{explan}, proj_bgt=#{paym}, proj_sdy=#{start}, proj_edy=#{end}, proj_limit=#{joinVal} where proj_id=#{id}
+	</update>
+	
+	<!-- 구인공고 개수 -->
+	<select id="jobInfoCnt" parameterType="int" resultType="int">
+		select count(*) from job where proj_id = #{projId}
+	</select>
+	
+	<!-- 내가 참여하고 있고 현재 진행 중인 프로젝트의 로고(사진)인데 프로젝트 당 하나씩만 나오게 -->
+	<select id="projLogo" parameterType="String" resultType="map">
+		select distinct p.proj_id "id"
+		      , p.proj_ttl "ttl"
+		      , p.proj_photo "photo" 
+		  from project p, promem pm
+		 where p.proj_id = pm.proj_id
+		   and pm.Mem_No = #{memNo}
+		   and pm.pmem_ody is null
+		   and sysdate between p.proj_sdy and p.proj_edy
+		   and (pm.PMEM_RSVP ='J'or pm.PMEM_RSVP ='Y')
+		   order by p.proj_ttl
+	</select>
+
+	<!-- 내가 참여하고 있고 현재 진행 중인 프로젝트 목록 -->
+	<select id="projOnList" parameterType="String" resultType="map">
+		SELECT  PR.PROJ_TTL || '_' || NVL(PM.PMEM_GRP, '') projTtl
+			  , PM.PMEM_GRP  pmemGrp
+			  , PM.PMEM_CD  pmemCd
+			  , PR.PROJ_ID  projId
+			  , M.MEM_NO  memNo
+			  , PR.PROJ_SDY  projSdy
+			  , PR.PROJ_EDY  projEdy
+			  , PR.PROJ_PHOTO  projPhoto
+		FROM PROMEM PM, PROJECT PR, MEMBER M 
+		WHERE PR.PROJ_ID = PM.PROJ_ID
+		AND M.MEM_NO = PM.MEM_NO
+		AND PM.PMEM_ODY IS NULL
+		AND (PM.PMEM_RSVP = 'Y' OR PM.PMEM_RSVP = 'J')
+		AND PM.MEM_NO = #{memNo}
+		AND SYSDATE <![CDATA[>=]]> PR.PROJ_SDY AND SYSDATE <![CDATA[<=]]> PR.PROJ_EDY
+		ORDER BY CASE WHEN PR.PROJ_TTL BETWEEN '가' AND '힣' THEN 0
+		WHEN PM.PMEM_GRP = '전체' THEN 1
+		WHEN PM.PMEM_GRP BETWEEN '가' AND '힣' THEN 2
+		WHEN (PM.PMEM_GRP <![CDATA[<]]> '가' OR PM.PMEM_GRP > '힣') THEN 3
+		ELSE 4 END ASC, PR.PROJ_TTL ASC, PM.PMEM_GRP ASC
+	</select>
+	
+	<!-- 프로젝트 그룹인지 아닌지 count로 확인하기 -->
+	<select id="projCount" parameterType="map" resultType="int">
+		select count(*) cnt
+		from promem
+		where proj_id = #{projId}
+		and mem_no = #{memNo}
+	</select>
+	
+	<!-- 시작날에서 하루 지난 프로젝트 상태 신규 -> 진행 자동 바꾸기 -->
+	<update id="changeSTTS">
+		UPDATE PROJECT
+		SET PROJ_STTS = '진행'
+		WHERE PROJ_SDY <![CDATA[<]]> SYSDATE
+	</update>
+	
+	<!-- 종료일 지난 프로젝트 상태 종료로 바꾸기 -->
+	<update id="changeSTTSE">
+		UPDATE PROJECT
+		SET PROJ_STTS = '종료'
+		WHERE PROJ_EDY <![CDATA[<]]> SYSDATE
+	</update>
+	
+	<!-- 내가 개설한 프로젝트 중 현재 진행 중인 프로젝트 제목 리스트 -->
+	<select id="projMadeByMe" parameterType="projectVO" resultType="projectVO">
+		SELECT
+		     P.PROJ_ID
+		   , P.PAY_NO
+		   , P.PROJ_STTS
+		   , P.PROJ_TTL
+		   , P.PLAN_TTL
+		   , PM.MEM_NO
+		FROM
+		    PROJECT P, PROMEM PM
+		WHERE PM.PROJ_ID = P.PROJ_ID
+		AND SYSDATE BETWEEN P.PROJ_SDY AND P.PROJ_EDY
+		AND PM.PMEM_ODY IS NULL
+		AND (PM.PMEM_RSVP = 'Y'
+		AND PM.ROLE_ID = 'R01')
+		AND (P.PROJ_STTS = '신규' OR P.PROJ_STTS = '진행')
+		AND Pm.Mem_No = #{memNo}
+		ORDER BY P.PROJ_TTL
+	</select>
+	
+	
+	<!-- ////////////////////////////////////////////////// 대시보드 ////////////////////////////////////////////////// -->
+	
+	<!-- 프로젝트 대시보드(메인) -->
+	<select id="projMain" parameterType="map" resultType="map">
+		SELECT DISTINCT P.PROJ_ID "id"
+			 , P.PAY_NO "payno"
+			 , P.PROJ_STTS "stts"
+			 , P.PROJ_TTL "ttl"
+			 , P.PLAN_TTL "plan"
+			 , P.PROJ_CN "cn"
+			 , TO_CHAR(P.PROJ_BGT, '999,999,999') "bgt"
+			 , TO_CHAR(P.PROJ_SDY, 'YYYY.MM.DD') "sdy"
+			 , TO_CHAR(P.PROJ_EDY, 'YYYY.MM.DD') "edy"
+			 , P.PROJ_LIMIT "limit"
+			 , P.PROJ_PARTY "party"
+			 , PM.PMEM_GRP "grp"
+		FROM PROJECT P, PROMEM PM, MEMBER M
+		WHERE PM.PROJ_ID = P.PROJ_ID
+        AND PM.MEM_NO = M.MEM_NO
+        AND M.MEM_NO = #{memNo}
+		AND P.PROJ_ID = #{projId}
+		AND PM.PMEM_GRP = #{grp}
+	</select>
+	
+	<!-- 프로젝트 진척도(100%일감 / 전체 일감) -->
+	<select id="process" parameterType="map" resultType="map">
+		select a.alltask, b.done
+		from (	select count(*) alltask
+				from task
+				where proj_id = #{projId}
+				and pmem_cd in (select pmem_cd from promem where proj_id = #{projId} and pmem_grp = #{grp})) a, 
+			(select count(*) done
+		 	from task
+			where proj_id = #{projId}
+			and pmem_cd in (select pmem_cd from promem where proj_id = #{projId} and pmem_grp = #{grp})
+			and (task_stts = '완료' or task_stts = '승인')) b
+	</select>
+	
+	<!-- 그룹별 역할 현황 -->
+	<select id="roleStatus" parameterType="map" resultType="mainVO">
+		SELECT A.PM, B.PL, C.TA, D.AA, E.UA, F.DA
+		FROM (SELECT COUNT(*) PM
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R01') A, 
+		        (SELECT COUNT(*) PL
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R02') B, 
+		        (SELECT COUNT(*) TA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R03') C, 
+		        (SELECT COUNT(*) AA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R04') D, 
+		        (SELECT COUNT(*) UA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R05') E, 
+		        (SELECT COUNT(*) DA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND PMEM_GRP = #{pmemGrp}
+		        AND ROLE_ID = 'R06') F
+	</select>
+	
+	<!-- 그룹 있는데 전체에서 총 인원으로 역할 보여주기 -->
+	<select id="allRoleStatus" parameterType="int" resultType="mainVO">
+		SELECT A.PM, B.PL, C.TA, D.AA, E.UA, F.DA
+		FROM (SELECT COUNT(*) PM
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R01') A, 
+		        (SELECT COUNT(*) PL
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R02') B, 
+		        (SELECT COUNT(*) TA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R03') C, 
+		        (SELECT COUNT(*) AA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R04') D, 
+		        (SELECT COUNT(*) UA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R05') E, 
+		        (SELECT COUNT(*) DA
+		        FROM PROMEM
+		        WHERE PROJ_ID = #{projId}
+		        AND ROLE_ID = 'R06') F
+	</select>
+	
+	<!-- 로드맵 -->
+	<select id="roadmap" parameterType="int" resultType="map">
+		select RM_SE sec, RM_CN cn
+		from roadmap
+		where proj_id = #{projId}
+	</select>
+	
+		
+	<sql id="selectPromem">
+		WITH U AS (
+			    	SELECT ROW_NUMBER() OVER (ORDER BY TO_NUMBER(T.TASK_NO) DESC) RNUM
+			            , T.TASK_NO
+			            , T.PROJ_ID
+			            , T.task_ttl
+			            , T.task_cn
+			            , T.TASK_SDY
+			            , T.TASK_EDY
+			            , T.TASK_PRIORITY
+			            , T.TASK_STTS
+			            , T.TASK_PROGRESS
+			            , T.TASK_PARENT
+			            , T.PMEM_CD
+			            , T.PMEM_GRP
+			            , T.PROF_NM
+			            , T.MEM_NO
+			            , T.PROF_PHOTO
+			            , T.ROLE_ID
+			    	FROM (
+			                SELECT
+			                    TA.TASK_NO
+			                   ,TA.PROJ_ID
+			                   ,TA.TASK_TTL
+			                   ,TA.TASK_CN
+			                   ,TO_CHAR(TA.TASK_SDY, 'YYYY.MM.DD') TASK_SDY
+			                   ,TO_CHAR(TA.TASK_EDY, 'YYYY.MM.DD') TASK_EDY
+			                   ,TA.TASK_PRIORITY
+			                   ,TA.TASK_STTS
+			                   ,TA.TASK_PROGRESS
+			                   ,TA.TASK_PARENT
+			                   ,TA.PMEM_CD
+			                   ,B.PMEM_GRP
+			                   ,B.PROF_NM
+			                   ,B.MEM_NO
+			                   ,B.PROF_PHOTO
+			                   ,B.ROLE_ID
+			                FROM
+			                    TASK TA, (
+		                                    SELECT case when PM.ROLE_ID = 'R01' then 'PM'
+                                                        when PM.ROLE_ID = 'R02' then 'PL'
+                                                        when PM.ROLE_ID = 'R03' then 'TA'
+                                                        when PM.ROLE_ID = 'R04' then 'AA'
+                                                        when PM.ROLE_ID = 'R05' then 'UA'
+                                                        when PM.ROLE_ID = 'R06' then 'DA'
+                                                        when PM.ROLE_ID = 'R07' then '미정'
+                                                        ELSE 'BA' END AS "ROLE_ID", PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO
+		                                    FROM PROMEM PM,(
+		                                                    SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO
+		                                                    FROM PROFILE PRO, MEMBER M
+		                                                    WHERE PRO.MEM_NO = M.MEM_NO
+		                                                    AND PRO.PROJ_ID = #{projId}
+		                                                    ) A
+		                                    WHERE PM.MEM_NO = A.MEM_NO
+		                                    AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+		                                    ) B
+			                WHERE B.PMEM_CD = TA.PMEM_CD
+						) T
+					)
+	</sql>
+	
+	<!-- 일감 최근 5개 -->
+	<select id="mainTask" parameterType="map" resultType="map">
+	<include refid="selectPromem"/>
+		SELECT U.*
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 6
+	</select>
+	
+	<!-- 이슈 최근 5개 -->
+	<select id="mainIssue" parameterType="map" resultType="map">
+		WITH U AS (
+                    SELECT ROW_NUMBER() OVER (ORDER BY TO_NUMBER(T.ISSUE_NO) DESC) RNUM
+                        , T.ISSUE_NO
+                        , T.TASK_NO
+                        , T.ISSUE_TYPE
+                        , T.ISSUE_TTL
+                        , T.ISSUE_CN
+                        , T.ISSUE_STTS
+                        , T.PMEM_CD
+                        , T.ISSUE_DY
+                        , T.PMEM_GRP
+                        , T.PROF_NM
+                        , T.MEM_NO
+                        , T.PROF_PHOTO
+                        , T.PROJ_ID
+                        , T.ROLE_ID
+                    FROM (
+                             SELECT
+                                  S.ISSUE_NO
+                                , S.TASK_NO
+                                , S.ISSUE_TYPE
+                                , S.ISSUE_TTL
+                                , S.ISSUE_CN
+                                , S.ISSUE_STTS
+                                , S.PMEM_CD
+                                , TO_CHAR(S.ISSUE_DY, 'YYYY.MM.DD') ISSUE_DY
+                                , B.PMEM_GRP
+                                , B.PROF_NM
+                                , B.MEM_NO
+                                , B.PROF_PHOTO
+                                , B.PROJ_ID
+                                , B.ROLE_ID
+                             FROM
+                                 issue s, (
+                                            SELECT case when PM.ROLE_ID = 'R01' then 'PM'
+                                                        when PM.ROLE_ID = 'R02' then 'PL'
+                                                        when PM.ROLE_ID = 'R03' then 'TA'
+                                                        when PM.ROLE_ID = 'R04' then 'AA'
+                                                        when PM.ROLE_ID = 'R05' then 'UA'
+                                                        when PM.ROLE_ID = 'R06' then 'DA'
+                                                        when PM.ROLE_ID = 'R07' then '미정'
+                                                        ELSE 'BA' END AS "ROLE_ID"
+                                                        ,PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO, A.PROJ_ID
+                                            FROM PROMEM PM,(
+                                                            SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO, PRO.PROJ_ID
+                                                            FROM PROFILE PRO, MEMBER M
+                                                            WHERE PRO.MEM_NO = M.MEM_NO
+		                                                    AND PRO.PROJ_ID = #{projId}
+                                                            ) A
+                                            WHERE A.MEM_NO = PM.MEM_NO
+                                            AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+                                          ) B
+                             WHERE s.PMEM_CD = B.PMEM_CD
+                        ) T
+                    )
+		SELECT   U.RNUM
+               , U.ISSUE_NO
+               , U.TASK_NO
+               , U.ISSUE_TYPE
+               , U.ISSUE_TTL
+               , U.ISSUE_CN
+               , U.ISSUE_STTS
+               , U.PMEM_CD
+               , U.ISSUE_NO
+               , U.ISSUE_DY
+               , U.PMEM_GRP
+               , U.PROF_NM
+               , U.MEM_NO
+               , U.PROF_PHOTO
+               , U.PROJ_ID
+               , U.ROLE_ID
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 6
+	</select>
+	
+	<!-- 공지사항 최근 5개 -->
+	<select id="mainNotice" parameterType="map" resultType="map">
+		WITH U AS (
+                    SELECT ROW_NUMBER() OVER (ORDER BY T.NTC_DY DESC) RNUM
+                        , T.NTC_NO
+                        , T.NTC_TTL
+                        , T.NTC_CN
+                        , T.NTC_DY
+                        , T.NTC_INQ
+                        , T.PMEM_CD
+                        , T.PMEM_GRP
+                        , T.PROF_NM
+                        , T.MEM_NO
+                        , T.PROF_PHOTO
+                        , T.PROJ_ID
+                    FROM (
+                           SELECT
+                                N.NTC_NO
+                              , N.PMEM_CD
+                              , N.NTC_TTL
+                              , N.NTC_CN
+                              , N.NTC_DY
+                              , N.NTC_INQ
+                              , B.PMEM_GRP
+                              , B.PROF_NM
+                              , B.MEM_NO
+                              , B.PROF_PHOTO
+                              , B.PROJ_ID
+                           FROM
+                               NOTICE N, (
+                                           SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO, A.PROJ_ID
+                                           FROM PROMEM PM,(
+                                                           SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO, PRO.PROJ_ID
+                                                           FROM PROFILE PRO, MEMBER M
+                                                           WHERE PRO.MEM_NO = M.MEM_NO
+		                                                    AND PRO.PROJ_ID = #{projId}
+                                                           ) A
+                                           WHERE A.MEM_NO = PM.MEM_NO
+                                            AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+                                           ) B
+                           WHERE N.PMEM_CD = B.PMEM_CD
+                        ) T
+                    )
+		SELECT   U.RNUM
+               , U.NTC_NO
+               , SUBSTR(U.NTC_TTL, 0, 10) || '...' NTC_TTL
+               , SUBSTR(U.NTC_CN, 0, 20) || '...' NTC_CN
+               , U.NTC_DY
+               , U.NTC_INQ
+               , U.PMEM_CD
+               , U.PMEM_GRP
+               , U.PROF_NM
+               , U.MEM_NO
+               , U.PROF_PHOTO
+               , U.PROJ_ID
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 4
+	</select>
+	
+	<!-- 일정 최근 4개 -->
+	<select id="mainCalendar" parameterType="map" resultType="map">
+		WITH U AS (
+		SELECT ROW_NUMBER() OVER (ORDER BY CAL.CAL_SDY DESC) RNUM
+		          , CAL.CAL_NO
+		          , CAL.PMEM_CD
+		          , TO_CHAR(CAL.CAL_SDY, 'DD') sttdate
+		          , TO_CHAR(CAL.CAL_SDY, 'DAY') sttday
+		          , TO_CHAR(CAL.CAL_SDY, 'HH24:MI') stttime
+		          , TO_CHAR(CAL.CAL_EDY, 'DD') enddate
+		          , TO_CHAR(CAL.CAL_EDY, 'DAY') endday
+		          , TO_CHAR(CAL.CAL_EDY, 'HH24:MI') endtime
+		          , CAL.CAL_CN
+		          , CAL.CAL_GROUP
+		          , C.PROF_NM
+		          , C.MEM_NO
+		FROM CALENDAR CAL, (
+                               SELECT 
+                                      A.MEM_NO
+                                    , B.PROF_NM
+                                    , A.PMEM_CD 
+                               FROM (SELECT PMEM_CD, MEM_NO FROM PROMEM WHERE PROJ_ID = #{projId}) A,
+                                    (SELECT PROF_NM, MEM_NO FROM PROFILE WHERE PROJ_ID = #{projId}) B
+                               WHERE A.MEM_NO = B.MEM_NO) C
+		WHERE CAL.CAL_GROUP = 'Y'
+		AND CAL.PMEM_CD IN (SELECT PMEM_CD
+                            FROM PROMEM
+                            WHERE PROJ_ID = #{projId}
+                            AND PMEM_GRP = #{grp})
+		AND CAL.PMEM_CD = C.PMEM_CD
+		)
+		SELECT 
+				U.RNUM
+		      , U.CAL_NO
+	          , U.PMEM_CD
+	          , U.sttdate
+	          , U.sttday
+	          , U.stttime
+	          , U.enddate
+	          , U.endday
+	          , U.endtime
+	          , U.CAL_CN
+	          , U.CAL_GROUP
+	          , U.PROF_NM
+	          , U.MEM_NO
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 4
+	</select>
+	
+	
+	<!-- 게시판 최근 5개 -->
+	<!-- 헬프 글 -->
+	<select id="mainBrdHelp" parameterType="map" resultType="map">
+		WITH U AS (
+		            SELECT ROW_NUMBER() OVER (ORDER BY T.BRD_DY DESC) RNUM
+		                , T.BRD_NO
+		                , T.BRD_TTL
+		                , T.BRD_DY
+		            FROM (
+		                   SELECT
+		                        B.BRD_NO
+		                      , B.BRD_TTL
+		                      , B.BRD_DY
+		                   FROM
+		                       BOARD B, (
+		                                   SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO, A.PROJ_ID
+		                                   FROM PROMEM PM,(
+		                                                   SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO, PRO.PROJ_ID
+		                                                   FROM PROFILE PRO, MEMBER M
+		                                                   WHERE PRO.MEM_NO = M.MEM_NO
+		                                                    AND PRO.PROJ_ID = #{projId}
+		                                                   ) A
+		                                   WHERE A.MEM_NO = PM.MEM_NO
+		                                    AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+		                                   ) C
+		                   WHERE B.PMEM_CD = C.PMEM_CD
+		                   AND BRD_HEAD = '2'
+		                ) T
+		            )
+		SELECT   U.RNUM
+		       , U.BRD_NO
+		       , U.BRD_TTL
+		       , U.BRD_DY
+		FROM U
+				
+		WHERE U.RNUM <![CDATA[<=]]> 4
+	</select>
+	
+	<!--  자유 글 -->
+	<select id="mainBrdFree" parameterType="map" resultType="map">
+		WITH U AS (
+		            SELECT ROW_NUMBER() OVER (ORDER BY T.BRD_DY DESC) RNUM
+		                , T.BRD_NO
+		                , T.BRD_TTL
+		                , T.BRD_DY
+		            FROM (
+		                   SELECT
+		                        B.BRD_NO
+		                      , B.BRD_TTL
+		                      , B.BRD_DY
+		                   FROM
+		                       BOARD B, (
+		                                   SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO, A.PROJ_ID
+		                                   FROM PROMEM PM,(
+		                                                   SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO, PRO.PROJ_ID
+		                                                   FROM PROFILE PRO, MEMBER M
+		                                                   WHERE PRO.MEM_NO = M.MEM_NO
+		                                                    AND PRO.PROJ_ID = #{projId}
+		                                                   ) A
+		                                   WHERE A.MEM_NO = PM.MEM_NO
+		                                    AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+		                                   ) C
+		                   WHERE B.PMEM_CD = C.PMEM_CD
+		                   AND BRD_HEAD = '1'
+		                ) T
+		            )
+		SELECT   U.RNUM
+		       , U.BRD_NO
+		       , U.BRD_TTL
+		       , U.BRD_DY
+		FROM U
+				
+		WHERE U.RNUM <![CDATA[<=]]> 4
+	</select>
+	
+	
+	<!-- 문서 최근 6개 -->
+	<select id="mainDoc" parameterType="map" resultType="map">
+		WITH U AS (
+                    SELECT ROW_NUMBER() OVER (ORDER BY T.DOC_DY DESC) RNUM
+                        , T.DOC_NO
+                        , T.DOC_TYPE
+                        , T.DOC_TTL
+                        , T.DOC_CN
+                        , T.DOC_DY
+                        , T.PMEM_CD
+                        , T.PMEM_GRP
+                        , T.PROF_NM
+                        , T.MEM_NO
+                        , T.PROF_PHOTO
+                        , T.PROJ_ID
+                    FROM (
+                                SELECT
+                                     d.DOC_NO
+                                   , d.DOC_TYPE
+                                   , d.DOC_TTL
+                                   , d.DOC_CN
+                                   , d.DOC_DY
+                                   , d.PMEM_CD
+                                   , B.PMEM_GRP
+                                   , B.PROF_NM
+                                   , B.MEM_NO
+                                   , B.PROF_PHOTO
+                                   , B.PROJ_ID
+                                FROM
+                                    document d, (
+                                                    SELECT PM.PMEM_CD, PM.PMEM_GRP, A.PROF_NM, A.MEM_NO, A.PROF_PHOTO, A.PROJ_ID
+                                                    FROM PROMEM PM,(
+                                                                    SELECT PRO.PROF_NM, PRO.PROF_PHOTO, M.MEM_NO, PRO.PROJ_ID
+                                                                    FROM PROFILE PRO, MEMBER M
+                                                                    WHERE PRO.MEM_NO = M.MEM_NO
+                                                                    AND PRO.PROJ_ID = #{projId}
+                                                                    ) A
+                                                    WHERE A.MEM_NO = PM.MEM_NO
+                                                    AND PM.PROJ_ID = #{projId}
+		                                    AND PM.PMEM_GRP = #{grp}
+                                                    ) B
+                                WHERE d.PMEM_CD = B.PMEM_CD
+                        ) T
+                    )
+		SELECT   U.RNUM
+                    , U.DOC_NO
+                    , U.PROJ_ID
+                    , U.DOC_TYPE
+                    , U.DOC_TTL
+                    , U.DOC_CN
+                    , U.DOC_DY
+                    , U.PMEM_CD
+                    , U.PMEM_GRP
+                    , U.PROF_NM
+                    , U.MEM_NO
+                    , U.PROF_PHOTO
+                    , U.PROJ_ID
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 4
+	</select>
+	
+	<!-- 위키 최근 6개 -->
+	<select id="mainWiki" parameterType="int" resultType="map">
+		WITH U AS (
+                    SELECT ROW_NUMBER() OVER (ORDER BY TO_NUMBER(T.WIKI_NO) DESC) RNUM
+                        , T.WIKI_NO
+                        , T.WIKI_TTL
+                        , T.WIKI_CN
+                        , T.PROJ_ID
+                    FROM (
+                                SELECT
+                                     w.WIKI_NO
+                                   , w.WIKI_TTL
+                                   , w.WIKI_CN
+                                   , p.PROJ_ID
+                                FROM
+                                    wiki w, project p
+                                WHERE w.PROJ_ID = p.PROJ_ID
+                                and w.proj_id =#{projId}
+                        ) T
+                    )
+		SELECT   U.RNUM
+                    , U.WIKI_NO
+                    , U.WIKI_TTL
+                    , U.WIKI_CN
+                    , U.PROJ_ID
+		FROM U
+		WHERE U.RNUM <![CDATA[<=]]> 6
+	</select>
+		
+	<!-- //////////////////////// 마이페이지 ///////////////////////// -->
+		
+		<!-- 진행중이 프로젝트 리스트 -->
+	<select id="projIngList" parameterType="projectVO" resultType="projectVO">
+		SELECT A.PROJ_ID
+			  , A.PAY_NO
+			  , A.PROJ_STTS
+			  , A.PROJ_TTL
+			  , A.PROJ_CN
+			  , A.PROJ_BGT
+			  , A.PROJ_SDY
+			  , A.PROJ_EDY
+			  , A.PROJ_LIMIT
+			  , A.PROJ_PARTY
+		      , A.PLAN_TTL
+		      , A.PROJ_PHOTO 
+		      , B.MEM_NO
+		      , B.PROF_NM
+		      , B.PROF_PHOTO
+              , LISTAGG( C.PMEM_GRP,',') WITHIN GROUP(ORDER BY C.PMEM_GRP) AS PMEM_GRP
+		      , COUNT(*) OVER() AS CNT
+		FROM PROJECT A, PROFILE B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = C.MEM_NO
+		AND B.MEM_NO = #{memNo}
+		AND A.PROJ_EDY > SYSDATE
+		AND SYSDATE > A.PROJ_SDY
+		AND (C.PMEM_RSVP ='J'OR C.PMEM_RSVP ='Y')
+		AND C.PMEM_ODY IS NULL
+		AND A.PROJ_TTL like '%'||#{scon}||'%'
+		AND <![CDATA[ rownum<=#{listcnt} ]]>
+		group by A.PROJ_ID, A.PAY_NO, A.PROJ_STTS, A.PROJ_TTL, A.PROJ_CN, 
+				 A.PROJ_BGT, A.PROJ_SDY, A.PROJ_EDY, A.PROJ_LIMIT, A.PROJ_PARTY, 
+				 A.PLAN_TTL, A.PROJ_PHOTO, B.MEM_NO, B.PROF_NM, B.PROF_PHOTO
+		ORDER BY A.PROJ_EDY ASC
+	</select>
+	
+	<!-- 진행중이 프로젝트 갯수 구하기 -->
+	<select id="projIngListCnt" parameterType="String" resultType="projectVO">
+		SELECT count(LISTAGG( C.PMEM_GRP,',') WITHIN GROUP(ORDER BY C.PMEM_GRP)) AS CNT
+		FROM PROJECT A, PROFILE B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = C.MEM_NO
+		AND B.MEM_NO = #{memNo}
+		AND A.PROJ_EDY > SYSDATE
+		AND SYSDATE > A.PROJ_SDY
+		AND (C.PMEM_RSVP ='J'OR C.PMEM_RSVP ='Y')
+		group by A.PROJ_ID, A.PAY_NO, A.PROJ_STTS, A.PROJ_TTL, A.PROJ_CN, 
+		A.PROJ_BGT, A.PROJ_SDY, A.PROJ_EDY, A.PROJ_LIMIT, A.PROJ_PARTY, 
+		A.PLAN_TTL, A.PROJ_PHOTO, B.MEM_NO, B.PROF_NM, B.PROF_PHOTO
+	</select>
+	
+	<!-- 마감 프로젝트 리스트 -->
+	<select id="projEndList" parameterType="projectVO" resultType="projectVO">
+		SELECT A.PROJ_ID
+		     , A.PAY_NO
+		     , A.PROJ_STTS
+		     , A.PROJ_TTL
+		     , A.PROJ_CN
+		     , A.PROJ_BGT
+		     , A.PROJ_SDY
+		     , A.PROJ_EDY
+		     , A.PROJ_LIMIT
+		     , A.PROJ_PARTY
+		     , A.PLAN_TTL
+		     , A.PROJ_PHOTO 
+		     , B.MEM_NO
+		     , B.PROF_NM
+		     , B.PROF_PHOTO
+		     , LISTAGG( C.PMEM_GRP,',') WITHIN GROUP(ORDER BY C.PMEM_GRP) AS PMEM_GRP
+		     , COUNT(*) OVER() AS CNT
+		FROM PROJECT A, PROFILE B, PROMEM C
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PROJ_ID = C.PROJ_ID
+		AND B.MEM_NO = C.MEM_NO
+		AND B.MEM_NO = #{memNo}
+		AND SYSDATE > A.PROJ_EDY
+		AND (C.PMEM_RSVP ='J'OR C.PMEM_RSVP ='Y')
+		AND C.PMEM_ODY IS NULL
+		AND A.PROJ_TTL like '%'||#{scon}||'%'
+		group by A.PROJ_ID, A.PAY_NO, A.PROJ_STTS, A.PROJ_TTL, A.PROJ_CN, 
+				 A.PROJ_BGT, A.PROJ_SDY, A.PROJ_EDY, A.PROJ_LIMIT, A.PROJ_PARTY, 
+				 A.PLAN_TTL, A.PROJ_PHOTO, B.MEM_NO, B.PROF_NM, B.PROF_PHOTO
+		ORDER BY A.PROJ_ID
+	</select>
+		
+	<!-- 내가 참여하고 진행중인 프로젝트 -->
+	<select id="mypageProejctList" parameterType="String" resultType="projectVO">
+		SELECT DISTINCT A.PROJ_TTL
+		     , A.PROJ_ID
+		     , COUNT(*) OVER() AS CNT
+		FROM PROJECT A,PROMEM B
+		WHERE A.PROJ_ID = B.PROJ_ID 
+		AND B.PMEM_ODY IS NULL 
+		AND MEM_NO = #{memNo}
+	</select>
+	
+	<!-- 초대받은 프로젝트 리스트 -->
+	<select id="inviteProjectList" parameterType="String" resultType="projectVO">
+		SELECT A.PMEM_CD
+		     , A.PROJ_ID
+		     , A.MEM_NO
+		     , A.PMEM_IDY
+		     , A.PMEM_ODY
+		     , A.PMEM_RSVP
+		     , A.PMEM_GRP
+		     , B.PROJ_TTL
+		     , B.PROJ_CN
+		     , B.PROJ_SDY
+		     , B.PROJ_EDY
+		     , B.PROJ_PHOTO
+		     , COUNT(*) OVER() AS CNT
+		FROM PROMEM A, PROJECT B
+		WHERE A.PROJ_ID = B.PROJ_ID
+		AND MEM_NO=#{memNo}
+		AND PMEM_RSVP = 'W'
+	</select>
+	
+	<!-- 프로젝트 수락하면  PMEM_RSVP w-y 로 변경 -->
+	<!-- /project/inviteYes?pmemCd=273&memNo=M0006 -->
+	<update id="inviteYes" parameterType="int">
+		UPDATE PROMEM
+		   SET pmem_rsvp = 'Y'
+		 WHERE pmem_cd = #{pmemCd}
+		   AND pmem_rsvp = 'W'
+	</update>
+	<!-- 프로젝트 거절하면  PMEM_RSVP w-n 으로 변경 -->
+	<update id="inviteNo" parameterType="int">
+		UPDATE PROMEM
+		   SET pmem_rsvp = 'N'
+		 WHERE pmem_cd = #{pmemCd}
+		   AND pmem_rsvp = 'W'
+	</update>
+	
+		<!-- promem에는 있는데 profile에는 없을 때 해당 회원을 profile에 넣어줌 -->
+	<insert id="syncPromemProfile" parameterType="String">
+		insert into profile(mem_no,proj_id,prof_nm,prof_photo)
+		select distinct p.mem_no, p.proj_id, m.mem_nm, m.mem_photo 
+		from promem p, member m 
+		where 1 = 1
+		and   p.mem_no = m.mem_no
+		and   p.proj_id = #{projId}
+		and not exists(
+		    select * from profile pf
+		    where proj_id = #{projId}
+		    and   p.mem_no = pf.mem_no
+		)
+	</insert>
+</mapper>

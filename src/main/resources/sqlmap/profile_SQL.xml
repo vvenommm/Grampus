@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.ProfileMapper">
+
+<select id="profileList" parameterType="String" resultType="profileVO">
+	SELECT A.MEM_NO
+	     , A.PROJ_ID
+	     , A.PROF_NM
+	     , A.PROF_PHOTO
+	     , B.PLAN_TTL 
+	     , B.PROJ_TTL
+	     , COUNT(*) OVER() AS CNT
+	     , LISTAGG(D.ROLE_NM,',') WITHIN GROUP(ORDER BY C.ROLE_ID) AS ROLE_NM 
+	     , SUBSTR(LISTAGG(D.ROLE_ID,',') WITHIN GROUP(ORDER BY C.ROLE_ID),'1','3') AS ROLE_ID 
+	FROM PROFILE A , PROJECT B, PROMEM C, ROLE D
+	WHERE  A.PROJ_ID = B.PROJ_ID
+	AND B.PROJ_ID = C.PROJ_ID
+	AND A.MEM_NO = C.MEM_NO
+	AND C.ROLE_ID = D.ROLE_ID
+	AND A.MEM_NO = #{memNo} 
+	AND (C.PMEM_RSVP ='J'OR C.PMEM_RSVP ='Y')
+	AND B.PROJ_EDY > SYSDATE
+	AND SYSDATE > B.PROJ_SDY 
+	AND C.PMEM_ODY IS NULL
+	group by A.MEM_NO, A.PROJ_ID, A.PROF_NM, A.PROF_PHOTO, B.PLAN_TTL, B.PROJ_TTL
+</select>
+
+<update id="profileUpdate" parameterType="profileVO">
+	UPDATE PROFILE
+	SET PROF_NM = #{profNm}
+	<if test="!profPhoto.equals('') and profPhoto!=null">
+	, PROF_PHOTO = #{profPhoto}
+	</if>
+	WHERE PROJ_ID = #{projId} AND MEM_NO = #{memNo}
+</update>
+
+<!-- 구인공고에서 신청하면 기본 프로필 삽입 -->
+<insert id="jobAprvInsert" parameterType="map">
+	insert into profile (MEM_NO, PROJ_ID, PROF_NM, PROF_PHOTO)
+	values (#{memNo}, #{projId}, #{profNm}, '회원기본프로필.png')
+</insert>
+
+<!-- 구인공고 취소하면 프로필 삭제 -->
+<delete id="jobCancel" parameterType="applicantVO">
+	DELETE FROM PROFILE
+	WHERE MEM_NO = #{memNo}
+	AND PROJ_ID = #{projId}
+</delete>
+
+
+<!-- 프로젝트에서 쫓겨나면 프로필 삭제하기 -->
+<delete id="kickOutProf" parameterType="map">
+	delete from profile
+	where mem_no = #{memNo}
+	and proj_id = #{projId}
+</delete>
+
+<!-- 프로젝트 개설 후 자동 프로필 생성 -->
+<insert id="afterNewProj" parameterType="profileVO">
+	INSERT INTO PROFILE (MEM_NO, PROJ_ID, PROF_NM, PROF_PHOTO)
+	VALUES (
+			(
+				SELECT MEM_NO FROM MEMBER WHERE MEM_ID = #{memId}
+			)
+			, #{projId}
+			, (
+				SELECT MEM_NM FROM MEMBER WHERE MEM_ID = #{memId}
+			)
+			, '회원기본프로필.png')
+</insert>
+
+<insert id="inviJoining" parameterType="proMemVO">
+	INSERT INTO PROFILE (MEM_NO, PROJ_ID, PROF_NM, PROF_PHOTO)
+	VALUES (
+			#{memNo}
+		  , #{projId}
+		  , (SELECT MEM_NM FROM MEMBER WHERE MEM_NO = #{memNo})
+		  , '회원기본프로필.png'
+			)
+</insert>
+</mapper>

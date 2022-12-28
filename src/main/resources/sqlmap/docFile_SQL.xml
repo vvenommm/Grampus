@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+<mapper namespace="kr.or.ddit.mapper.DocFileMapper">
+	<!-- 첨부 파일 등록 -->
+	<insert id="fileInsert" parameterType="docFileVO">
+		INSERT INTO DOCFILE (DCF_NO, DOC_NO, DCF_NM, DCF_SZ, DCF_SAVEPATH, DCF_ULDDY, DCF_SE) 
+		VALUES (DOF_NO.NEXTVAL, #{docNo}, #{dcfNm}, #{dcfSz}, #{dcfSavepath}, SYSDATE, #{dcfSe})
+	</insert>
+	
+	<!-- 연결 일감이 있는 경우 insert 후 바로 열결 일감 update 해주기 (없을 수도 있어서 따로 뺌 -->
+	
+	<!-- 첨부파일 조회 -->
+	<select id="selectFile" parameterType="int" resultType="docFileVO">
+		SELECT DCF_NO, DOC_NO, DCF_NM, DCF_SZ, DCF_SAVEPATH, DCF_ULDDY, DCF_SE
+		FROM DOCFILE
+		WHERE DOC_NO = #{docNo}
+		ORDER BY DCF_NO ASC
+	</select>
+	
+	<!-- 문서글 삭제 시 관련 첨부파일도 모두 삭제 -->
+	<delete id="deleteDof" parameterType="int"> 
+		DELETE DOCFILE
+		WHERE DOC_NO = #{docNo}
+	</delete>
+	
+	<!-- 다운로드할 파일 가져오기 -->
+	<select id="getDownload" parameterType="int" resultType="docFileVO">
+		SELECT DCF_NO, DOC_NO, DCF_NM, DCF_SZ, DCF_SAVEPATH, DCF_ULDDY, DCF_SE
+		FROM DOCFILE
+		WHERE DCF_NO = #{dcfNo}
+	</select>
+	
+	<!-- 파일 삭제 -->
+	<delete id="delFile" parameterType="int">
+		DELETE FROM DOCFILE
+		WHERE DCF_NO = #{dcfNo}
+	</delete>
+	
+	<!-- 문서번호 최대값 -->
+	<select id="maxDcfNo" resultType="int">
+		SELECT NVL(MAX(DCF_NO), 0)
+		FROM DOCFILE
+	</select>
+</mapper>
